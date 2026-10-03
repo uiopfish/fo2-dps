@@ -45,15 +45,15 @@ cargo run -- validate-data
 cargo run -- build-web-bundle
 ```
 
-`build-web-bundle` writes `web/data/app-data.v1.json`. Commit this compact generated file with the corresponding source and frontend changes. GitHub Pages builds do not need the large raw mob HTML snapshot.
+`build-web-bundle` writes `web/data/app-data.v1.json`. Despite the retained filename, the generated file uses bundle schema version 2. Commit it with the corresponding normalized data and frontend changes. Its current combined size is about 4.17 MiB.
 
 The bundle generator:
 
 - Merges canonical and supplemental skills.
 - Preserves item, set, skill, mob, drop, faction, location, spawn, tooltip, and calculation fields.
-- Derives and preserves the current boss-candidate marker before removing source HTML.
-- Removes raw page HTML, parsed raw tables, duplicate raw cells, and scrape-only fallback structures.
-- Verifies schema and build identifiers.
+- Reads the already-normalized mob records without destructively compacting them.
+- Preserves the explicit `boss_candidate` boolean, which collection derives solely from the archived `achievement-boss-` marker and which remains heuristic.
+- Verifies bundle schema version 2 and the build identifier.
 - Loads the generated bundle through the shared route dispatcher and checks record counts.
 
 ## Building and testing locally
@@ -108,7 +108,7 @@ cargo run -- build-web-bundle
 ./scripts/build-pages.sh
 ```
 
-Inspect and commit the changed `web/data/app-data.v1.json`, then push to `main`.
+Inspect and commit the changed normalized snapshots, `data/mobs.provenance.json` when mob collection changed, and `web/data/app-data.v1.json`, then push to `main`. Do not add the gitignored raw mob archive.
 
 ## Published and excluded data
 
@@ -121,9 +121,11 @@ The Pages artifact contains:
 - `data/app-data.v1.json`
 - An empty favicon and `.nojekyll`
 
-It does not contain SQLite, scraper checkpoints, debug HTML, validation reports, raw mob page HTML, a server executable, or secrets.
+It does not contain SQLite, scraper checkpoints, debug HTML, validation reports, the provenance manifest, `data/mobs.raw.jsonl.gz`, a server executable, or secrets. Pages never ships the raw mob archive.
 
 ## Limitations
+
+The tracked `data/mobs.json` is a normalized 467-record snapshot of about 2.5 MiB with no source HTML, raw tables, or raw cells. A successful bulk `mobs` collection also writes the lossless source evidence to `data/mobs.raw.jsonl.gz` (about 5.8 MiB, gzip JSONL), plus `data/mobs.provenance.json` and the scrape report. The archive is gitignored and remains local unless an operator stores it elsewhere; it is not part of Pages, the repository, or a documented release-asset upload. The tracked provenance manifest contains checksums for the normalized snapshot and exact archive so a retained copy can be verified.
 
 - The repository and deployed game data are public.
 - There is no private guild authentication in the free static design.

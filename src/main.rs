@@ -1,8 +1,10 @@
 use anyhow::{Context, Result, bail};
+use flate2::{Compression, write::GzEncoder};
 use fo2_dps::{
     character, db, effects, encounter, grinding, mobs, pages, scraper, storage, validation, web,
 };
 use serde::{Serialize, de::DeserializeOwned};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -11,6 +13,17 @@ use std::time::Duration;
 use fo2_dps::db::{Item, ItemSet, ScrapeFailure, ScrapeReport, Skill, load_skills};
 
 const BULK_REQUEST_DELAY: Duration = Duration::from_millis(200);
+
+#[derive(Serialize)]
+struct MobProvenance {
+    schema_version: u32,
+    record_count: usize,
+    normalized_path: &'static str,
+    normalized_sha256: String,
+    archive_path: &'static str,
+    archive_format: &'static str,
+    archive_sha256: String,
+}
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -371,21 +384,87 @@ fn collect_set_piece_items() -> Result<()> {
 
 fn collect_mobs() -> Result<()> {
     let slugs = mobs::fetch_mob_slugs()?;
-    let (records, report) = collect_records(
+    let (captures, report) = collect_records(
         "mobs",
         &slugs,
         "data/mobs.partial.jsonl",
-        mobs::fetch_mob,
-        |mob: &mobs::Mob| mob.slug.clone(),
+        mobs::fetch_mob_capture,
+        |capture: &mobs::MobCapture| capture.mob.slug.clone(),
         |_| Vec::new(),
     )?;
-    finish_collection(
-        &records,
-        &slugs,
-        report,
-        "data/mobs.json",
-        "data/mobs.partial.jsonl",
-    )
+    finish_mob_collection(&captures, &slugs, report)
+}
+
+fn finish_mob_collection(
+    captures: &[mobs::MobCapture],
+    slugs: &[String],
+    report: ScrapeReport,
+) -> Result<()> {
+    const NORMALIZED_PATH: &str = "data/mobs.json";
+    const ARCHIVE_PATH: &str = "data/mobs.raw.jsonl.gz";
+    const MANIFEST_PATH: &str = "data/mobs.provenance.json";
+    const CHECKPOINT_PATH: &str = "data/mobs.partial.jsonl";
+
+    let requested = slugs.iter().collect::<BTreeSet<_>>().len();
+    let report_path = "data/mobs.scrape-report.json";
+    atomic_write(
+        std::path::Path::new(report_path),
+        &serde_json::to_vec_pretty(&report)?,
+    )?;
+    if requested == 0 {
+        bail!("No mob slugs discovered; refusing to publish an empty collection");
+    }
+    if !report.failures.is_empty() || captures.len() != requested {
+        bail!(
+            "Incomplete collection: saved {} mobs to {CHECKPOINT_PATH}; {} failures remain. Report: {report_path}",
+            captures.len(),
+            report.failures.len()
+        );
+    }
+
+    let normalized = captures
+        .iter()
+        .map(|capture| &capture.mob)
+        .collect::<Vec<_>>();
+    let normalized_bytes = serde_json::to_vec_pretty(&normalized)?;
+
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
+    for capture in captures {
+        serde_json::to_writer(&mut encoder, &capture.archive)?;
+        encoder.write_all(b"\n")?;
+    }
+    let archive_bytes = encoder.finish()?;
+
+    let manifest = MobProvenance {
+        schema_version: 1,
+        record_count: captures.len(),
+        normalized_path: NORMALIZED_PATH,
+        normalized_sha256: sha256_hex(&normalized_bytes),
+        archive_path: ARCHIVE_PATH,
+        archive_format: "jsonl+gzip",
+        archive_sha256: sha256_hex(&archive_bytes),
+    };
+
+    atomic_write(std::path::Path::new(ARCHIVE_PATH), &archive_bytes)?;
+    atomic_write(std::path::Path::new(NORMALIZED_PATH), &normalized_bytes)?;
+    atomic_write(
+        std::path::Path::new(MANIFEST_PATH),
+        &serde_json::to_vec_pretty(&manifest)?,
+    )?;
+    fs::remove_file(CHECKPOINT_PATH)
+        .with_context(|| format!("Could not remove completed checkpoint {CHECKPOINT_PATH}"))?;
+
+    println!(
+        "Saved {} normalized mobs to {NORMALIZED_PATH} ({:.2} MiB), raw archive to {ARCHIVE_PATH} ({:.2} MiB), and provenance to {MANIFEST_PATH}. Report: {report_path}",
+        captures.len(),
+        normalized_bytes.len() as f64 / 1_048_576.0,
+        archive_bytes.len() as f64 / 1_048_576.0,
+    );
+    Ok(())
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
 }
 
 fn collect_skills() -> Result<()> {

@@ -339,7 +339,7 @@ fn percentage(value: f64, name: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mobs::{MobRange, MobRawPage};
+    use crate::mobs::MobRange;
 
     fn mob(attacks: Option<bool>) -> Mob {
         Mob {
@@ -359,13 +359,7 @@ mod tests {
             debuffs: Vec::new(),
             locations: Vec::new(),
             drop_profiles: Vec::new(),
-            raw: MobRawPage {
-                facts: Vec::new(),
-                sections: Vec::new(),
-                tables: Vec::new(),
-                links: Vec::new(),
-                source_html: String::new(),
-            },
+            boss_candidate: false,
         }
     }
 

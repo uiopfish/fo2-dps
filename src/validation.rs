@@ -118,12 +118,12 @@ fn load(path: &Path, optional: bool, report: &mut Report) -> Option<Value> {
 
 fn validate_directory(directory: &Path) -> Result<()> {
     let mut report = Report {
-        schema_version: 2,
+        schema_version: 3,
         limitations: vec![
             "Null means unknown or not applicable, never numeric zero; only explicit source states establish no cooldown/no timed duration/does not attack.",
             "Zone checks compare published identifiers internally; no authoritative zones dataset is available.",
             "Rolls are independent ordered entries: repeated rolls are allowed, percentages are not summed, and displayed rounded probabilities are not recomputed.",
-            "Raw HTML and source wording are retained but not interpreted as a closed schema; coverage does not imply semantic understanding.",
+            "Normalized mob records preserve selected published text and links; source HTML is archived separately and is not validated here.",
             "Name-only legacy matching cannot establish identity or prove an item was removed.",
         ],
         ..Report::default()
@@ -228,24 +228,18 @@ fn fields(schema: &str) -> Option<&'static str> {
         "range32" => "min:u32 max:u32",
         "range64" => "min:u64 max:u64",
         "mob" => {
-            "slug:slug name:string source_url:string level:?u64 health:?u64 damage:?range64 attack_speed_ms:?u64 attacks:?bool faction:?mob_value faction_xp:?i64 required_weapon:?mob_value aggressive:?bool debuff_skill_count:?u64 debuffs:[mob_value] locations:[location] drop_profiles:[profile] raw:raw_page"
+            "slug:slug name:string source_url:string level:?u64 health:?u64 damage:?range64 attack_speed_ms:?u64 attacks:?bool faction:?mob_value faction_xp:?i64 required_weapon:?mob_value aggressive:?bool debuff_skill_count:?u64 debuffs:[mob_value] locations:[location] drop_profiles:[profile] boss_candidate:bool"
         }
         "link" => "href:string text:string aria_label:?string",
-        "mob_value" => "text:string links:[link] html:string",
-        "fact" => "label:string value:mob_value",
-        "table" => "caption:?string aria_label:?string headers:[mob_value] rows:[[mob_value]]",
-        "section" => "id:?string heading:?string facts:[fact] tables:[table] content:mob_value",
-        "raw_page" => {
-            "facts:[fact] sections:[section] tables:[table] links:[link] source_html:string"
-        }
-        "location" => "zone:link map_location_count:?u64 raw:mob_value",
+        "mob_value" => "text:string links:[link]",
+        "location" => "zone:link map_location_count:?u64",
         "profile" => {
-            "summary:mob_value zone:?mob_value map_location_count:?u64 solo_coins:?range64 drops:[drop] facts:[fact] tables:[table] raw:mob_value"
+            "summary:mob_value zone:?mob_value map_location_count:?u64 solo_coins:?range64 drops:[drop] notice:?string"
         }
         "drop" => {
-            "item:mob_value rolls:[roll] solo_chance_at_least_one_percent:?percent maximum_quantity:?u64 raw_cells:[mob_value]"
+            "item:mob_value rolls:[roll] solo_chance_at_least_one_percent:?percent maximum_quantity:?u64"
         }
-        "roll" => "source:?string chance_percent:?percent raw:mob_value",
+        "roll" => "source:?string chance_percent:?percent",
         _ => return None,
     })
 }
@@ -974,8 +968,8 @@ mod tests {
 
     #[test]
     fn unresolved_links_and_repeated_rolls() {
-        let roll = json!({"source": "Spawn", "chance_percent": 80, "raw": {"text": "80%", "links": [], "html": ""}});
-        let drop = json!({"item": {"text": "Missing", "links": [{"href": "/items/missing-1?x=2#roll", "text": "Missing", "aria_label": null}], "html": ""}, "rolls": [roll.clone(), roll], "solo_chance_at_least_one_percent": 96, "maximum_quantity": 2, "raw_cells": []});
+        let roll = json!({"source": "Spawn", "chance_percent": 80});
+        let drop = json!({"item": {"text": "Missing", "links": [{"href": "/items/missing-1?x=2#roll", "text": "Missing", "aria_label": null}]}, "rolls": [roll.clone(), roll], "solo_chance_at_least_one_percent": 96, "maximum_quantity": 2});
         let mut report = Report::default();
         check(&drop, "drop", "drop", &mut report);
         assert_eq!(report.summary.errors, 0);
@@ -992,6 +986,105 @@ mod tests {
         check(&json!(100.01), "percent", "chance", &mut report);
         check(&json!(-1), "percent", "chance", &mut report);
         assert_eq!(report.summary.errors, 3);
+    }
+
+    #[test]
+    fn normalized_mob_schema_accepts_boundaries_and_rejects_legacy_raw_fields() {
+        let mob = json!({
+            "slug": "boundary-mob",
+            "name": "Boundary Mob",
+            "source_url": "/mobs/boundary-mob",
+            "level": 0,
+            "health": null,
+            "damage": {"min": 0, "max": 0},
+            "attack_speed_ms": null,
+            "attacks": false,
+            "faction": {"text": "None", "links": []},
+            "faction_xp": 0,
+            "required_weapon": null,
+            "aggressive": false,
+            "debuff_skill_count": 0,
+            "debuffs": [],
+            "locations": [{
+                "zone": {"href": "/zones/boundary-zone", "text": "Boundary Zone", "aria_label": null},
+                "map_location_count": 0
+            }],
+            "drop_profiles": [{
+                "summary": {"text": "No drops", "links": []},
+                "zone": null,
+                "map_location_count": 0,
+                "solo_coins": {"min": 0, "max": 0},
+                "drops": [{
+                    "item": {"text": "Boundary Item", "links": []},
+                    "rolls": [
+                        {"source": null, "chance_percent": 0},
+                        {"source": null, "chance_percent": 0}
+                    ],
+                    "solo_chance_at_least_one_percent": 0,
+                    "maximum_quantity": 0
+                }],
+                "notice": null
+            }],
+            "boss_candidate": false
+        });
+        let mut report = Report::default();
+        check(&mob, "mob", "mobs.json/0", &mut report);
+        assert_eq!(report.summary.errors, 0);
+        assert_eq!(report.summary.warnings, 0);
+        assert_eq!(
+            report.field_states["mob.boss_candidate"]["explicit_false"],
+            1
+        );
+        assert_eq!(
+            report.field_states["profile.notice"]["null_unknown_or_not_applicable"],
+            1
+        );
+
+        let mut missing_boss = mob.clone();
+        missing_boss
+            .as_object_mut()
+            .unwrap()
+            .remove("boss_candidate");
+        check(&missing_boss, "mob", "mobs.json/1", &mut report);
+        assert!(report.issues.iter().any(|issue| {
+            issue.code == "missing_field" && issue.path == "mobs.json/1/boss_candidate"
+        }));
+
+        for (kind, value, legacy_field) in [
+            (
+                "mob_value",
+                json!({"text": "x", "links": [], "html": "x"}),
+                "html",
+            ),
+            (
+                "location",
+                json!({
+                    "zone": {"href": "/zones/x", "text": "X", "aria_label": null},
+                    "map_location_count": null,
+                    "raw": {"text": "x", "links": []}
+                }),
+                "raw",
+            ),
+            (
+                "roll",
+                json!({
+                    "source": null,
+                    "chance_percent": null,
+                    "raw": {"text": "x", "links": []}
+                }),
+                "raw",
+            ),
+        ] {
+            let start = report.issues.len();
+            check(&value, kind, kind, &mut report);
+            assert!(report.issues[start..].iter().any(|issue| {
+                issue.code == "unknown_field" && issue.path == format!("{kind}/{legacy_field}")
+            }));
+        }
+        assert!(fields("fact").is_none());
+        assert!(fields("table").is_none());
+        assert!(fields("section").is_none());
+        assert!(fields("raw_page").is_none());
     }
 
     #[test]
@@ -1079,6 +1172,7 @@ mod tests {
             validate_directory(&directory)?;
             let warnings: Value =
                 serde_json::from_slice(&fs::read(directory.join("validation-report.json"))?)?;
+            assert_eq!(warnings["schema_version"], 3);
             assert_eq!(warnings["summary"]["errors"], 0);
             assert!(warnings["summary"]["warnings"].as_u64().unwrap() > 0);
             fs::write(directory.join("items.json"), b"[null, {}, 123]")?;

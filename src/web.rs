@@ -30,7 +30,7 @@ use crate::mobs::Mob;
 
 #[cfg(not(target_arch = "wasm32"))]
 const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
-pub const WEB_BUILD_ID: &str = "2026-09-28-static-pages-v27";
+pub const WEB_BUILD_ID: &str = "2026-10-02-normalized-mobs-v28";
 const DEFAULT_PAGE_SIZE: usize = 30;
 const MAX_PAGE_SIZE: usize = 100;
 
@@ -79,7 +79,7 @@ impl WebData {
     }
 
     pub fn from_bundle(bundle: WebBundle) -> std::result::Result<Self, String> {
-        if bundle.schema_version != 1 {
+        if bundle.schema_version != 2 {
             return Err(format!(
                 "unsupported web bundle schema version: {}",
                 bundle.schema_version

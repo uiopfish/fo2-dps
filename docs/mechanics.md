@@ -1,6 +1,6 @@
 # Fantasy Online 2 Mechanics Specification
 
-Status date: 2026-09-15. Sources are the public Fantasy Online 2 database. This document distinguishes published rules from unknown formulas; dataset correlations are not treated as mechanics.
+Status date: 2026-10-02. Sources are the public Fantasy Online 2 database. This document distinguishes published rules from unknown formulas; dataset correlations are not treated as mechanics.
 
 ## Table of contents
 
@@ -158,7 +158,7 @@ The encounter model uses the midpoint of the published mob-damage range as expec
 - The web leaderboard uses shop value only. Repeated gold farming would oversaturate the game's small market for non-consumable drops, so market and recently-sold observations are not counted as sustainable leaderboard income. Explicit single-route and CLI scenarios retain those observation-based models for comparison.
 - Mining veins, unlocking chests, and trees are excluded from the leaderboard through their typed required-tool metadata.
 - Regular mobs respawn 30 seconds after death. Each selected drop profile's published map-spawn count gives `spawn count × 120 kills/hour`. This cap is optional for positive-duration routes and is the automatic finite bound when an opening one-shot plus zero route overhead produces a zero-second cycle. Effective route wait remains an independent input.
-- Records whose retained source HTML contains `achievement-boss-` are treated as boss candidates and excluded from the leaderboard. Bosses have a confirmed 30-minute respawn and are intentionally outside the sustained-grinding ranking; the artwork check remains a bounded classification heuristic.
+- Each normalized mob has an explicit `boss_candidate` boolean derived solely during collection from the archived source HTML's `achievement-boss-` marker. Candidates are excluded from the leaderboard. Bosses have a confirmed 30-minute respawn and are intentionally outside the sustained-grinding ranking; the marker-derived classification remains a bounded heuristic, not a confirmed mechanic.
 - Unknown shop values contribute zero only to the leaderboard's known-value ranking subtotal; detailed route totals preserve them as unknown.
 
 ## Recorded in-game observations

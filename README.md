@@ -47,7 +47,7 @@ The same dependency-free frontend runs through WebAssembly on GitHub Pages or is
 
 - Archive dashboard with live dataset counts
 - Searchable, paginated item, mob, skill, and item-set explorer
-- Compact mob details that omit the large archived raw HTML
+- Mob details backed by the tracked normalized dataset; raw source evidence remains outside the web application
 - Shared, browser-persisted character build workspace
 - Build inspection and validation
 - Encounter calculations
@@ -59,7 +59,7 @@ Guided forms are the default workflow: progression and attribute inputs, visual 
 
 The build result is a dedicated character sheet rather than a generic metric sample. It shows confirmed maximum Health and Energy from total post-equipment attributes, raw Armor, Attack Power when final-attribute leadership is unambiguous, basic-attack panel damage, attack interval, bounded two-second out-of-combat Health/Energy Regen candidates, a base/allocated/gear/set/total attribute table, direct modifiers, active set tiers, selected skills, validation errors, and unresolved mechanics. Skill/buff/pet periodic regeneration remains separately effect-defined and always active for the effect duration. The all-source Crit soft cap and piecewise Dodge rule are active; the conflicting level-103 Crit screenshot reading and equipment-regeneration interaction remain documented rather than hidden.
 
-Read-only/list APIs include `/api/summary`, `/api/items`, `/api/mobs`, `/api/skills`, and `/api/item-sets`, with `search`, `offset`, and `limit` query parameters. Calculator APIs are `/api/build/inspect`, `/api/encounter/{mob-slug}`, `/api/grind/{mob-slug}`, `/api/grind/compare`, and `/api/grind/leaderboard`. Requests are limited to 2 MiB. The server loads the authoritative JSON snapshots at startup; because `data/mobs.json` retains raw source HTML, initial loading may take a few seconds.
+Read-only/list APIs include `/api/summary`, `/api/items`, `/api/mobs`, `/api/skills`, and `/api/item-sets`, with `search`, `offset`, and `limit` query parameters. Calculator APIs are `/api/build/inspect`, `/api/encounter/{mob-slug}`, `/api/grind/{mob-slug}`, `/api/grind/compare`, and `/api/grind/leaderboard`. Requests are limited to 2 MiB. Native startup reads the tracked normalized snapshots, including `data/mobs.json`; it does not load the separate raw mob archive.
 
 ## Commands
 
@@ -88,7 +88,7 @@ cargo run -- serve
 
 ## Static GitHub Pages deployment
 
-The same API contracts and Rust calculations can run entirely in the browser through WebAssembly. `build-web-bundle` projects the authoritative snapshots into `web/data/app-data.v1.json`, removing archival HTML, raw tables, duplicate cells, and scrape-only fallback structures while preserving calculation and explorer fields. The current compact bundle is about 6.1 MiB for all 3,203 items, 21 sets, 367 skills, and 467 mobs—about 93% smaller than the raw mob archive alone. `scripts/build-pages.sh` assembles `dist/`, compiles the browser-safe Rust library, and generates the JavaScript WebAssembly bindings. The resulting site makes no `/api` requests and needs no server, billing account, database, or paid service.
+The same API contracts and Rust calculations can run entirely in the browser through WebAssembly. `build-web-bundle` combines the already-normalized authoritative snapshots into `web/data/app-data.v1.json` without destructively compacting mob records. The generated file currently uses bundle schema version 2 and is about 4.17 MiB for all 3,203 items, 21 sets, 367 skills, and 467 mobs. `scripts/build-pages.sh` assembles `dist/`, compiles the browser-safe Rust library, and generates the JavaScript WebAssembly bindings. Pages never includes or downloads `data/mobs.raw.jsonl.gz`; the resulting site makes no `/api` requests and needs no server, billing account, database, or paid service.
 
 After a successful scrape, refresh and validate the deployment data with:
 
@@ -156,7 +156,7 @@ The web Encounter and Grinding tabs automatically reuse safely derived values fr
 
 ## Grinding estimates
 
-The web Grinding tab opens with an automatic top-50 leaderboard. It evaluates every published drop profile for every eligible mob, keeps each mob's best route, and can rank by gold per hour or faction XP per hour. Mining, unlocking, and wood-cutting targets are excluded using typed required-weapon metadata. Boss candidates are detected from `achievement-boss-` artwork in retained source HTML and excluded until authoritative spawn timers are available. The MVP leaderboard explicitly assumes the player survives, uses the current build's basic-attack output, and defaults to zero travel/recovery/respawn time. Leaderboard gold/hour is a known-value subtotal: published coin income plus drops with a known probability and selected price; unknown drop values contribute zero. Detailed single-route estimates retain strict null propagation. Clicking the Gold/h or Faction XP/h table heading reruns the leaderboard using that ordering.
+The web Grinding tab opens with an automatic top-50 leaderboard. It evaluates every published drop profile for every eligible mob, keeps each mob's best route, and can rank by gold per hour or faction XP per hour. Mining, unlocking, and wood-cutting targets are excluded using typed required-weapon metadata. The explicit normalized `boss_candidate` boolean is derived solely from the archived source's `achievement-boss-` marker and is used to exclude likely bosses; this classification remains heuristic. The MVP leaderboard explicitly assumes the player survives, uses the current build's basic-attack output, and defaults to zero travel/recovery/respawn time. Leaderboard gold/hour is a known-value subtotal: published coin income plus drops with a known probability and selected price; unknown drop values contribute zero. Detailed single-route estimates retain strict null propagation. Clicking the Gold/h or Faction XP/h table heading reruns the leaderboard using that ordering.
 
 `grind` extends an encounter scenario with one location-specific drop profile and explicit cycle/economy policies:
 
@@ -235,19 +235,19 @@ Ranking metrics are `kills_per_hour`, `expected_coins_per_hour`, `expected_item_
 
 ## Mob snapshots
 
-`cargo run -- mob <slug>` fetches one mob. `cargo run -- mobs` discovers all mob index pages and writes `data/mobs.json` and `data/mobs.scrape-report.json`, using the same resumable runner as items and skills.
+`cargo run -- mob <slug>` fetches and prints one normalized mob. `cargo run -- mobs` discovers all mob index pages and, after a complete pass, publishes four outputs using the same resumable runner as items and skills: normalized `data/mobs.json`, raw `data/mobs.raw.jsonl.gz`, tracked `data/mobs.provenance.json`, and `data/mobs.scrape-report.json`.
 
-The standalone model in `src/mobs.rs` stores combat stats, attack intervals in milliseconds, explicit non-attacking status, faction XP, aggression, weapon restrictions, debuffs, zone links, and location-specific drop profiles. Drop profiles retain solo coin ranges, displayed drop percentages, maximum quantities, published map-spawn counts, and ordered independent rolls. Repeated rolls must not be deduplicated. The grinding model combines the spawn count with the confirmed 30-second regular-mob respawn; no boss flags are inferred.
+The standalone model in `src/mobs.rs` stores combat stats, attack intervals in milliseconds, explicit non-attacking status, faction XP, aggression, weapon restrictions, debuffs, zone links, location-specific drop profiles, and an explicit `boss_candidate` boolean. Drop profiles retain solo coin ranges, displayed drop percentages, maximum quantities, published map-spawn counts, and ordered independent rolls. Repeated rolls must not be deduplicated. `boss_candidate` is derived solely from the raw archive's `achievement-boss-` marker; it is a bounded heuristic, not an authoritative boss classification.
 
-Raw page HTML, labeled facts, tables, and original links (including calculator fragments) are retained in the source archive to allow later parsing without another crawl. This deliberately makes the current 467-mob `data/mobs.json` snapshot about 83 MiB, but that file is never copied into `dist/` or downloaded by Pages visitors. The deployed site uses the combined 6.1 MiB compact bundle instead. Raw snapshots could later move to a separate compressed archive; do not use their size as the expected size of the normalized browser or SQLite datasets.
+The tracked `data/mobs.json` is the normalized 467-record application dataset, about 2.5 MiB. It contains no source HTML, raw tables, or raw cells. Lossless source evidence is written separately as gzip-compressed JSON Lines in `data/mobs.raw.jsonl.gz`, currently about 5.8 MiB. That archive is gitignored: collection creates it locally, but the repository and GitHub Pages do not publish it, and this project does not claim it is uploaded as a release asset. Retain or back it up separately when future reparsing or source inspection matters.
 
-JSON remains the archival interchange format. The derived SQLite database provides indexed relational tables for mobs, locations, drop profiles, rolls, items, skills, and price observations while retaining the JSON snapshots for provenance and re-import. The native CLI and browser application use the shared Rust calculation engine for build inspection, encounter estimates, and grinding comparisons.
+The tracked `data/mobs.provenance.json` records the record count, paths, archive format, and SHA-256 checksums of both the normalized snapshot and the exact raw archive produced by the same collection. It lets a locally retained archive be verified, but it is not a substitute for the archive itself. The derived SQLite database provides indexed relational tables for mobs, locations, drop profiles, rolls, items, skills, and price observations. Native startup, SQLite import, and the web-bundle build all read normalized `data/mobs.json`; the raw archive is evidence for later parsing rather than an application input.
 
 ## Bulk collection
 
 `items`, `skills`, `mobs`, and `items-audit` checkpoint successful records to their corresponding `*.partial.jsonl` files. Rerun the same command to resume an incomplete run; already checkpointed slugs are skipped. Do not run concurrent copies of the same command.
 
-The final JSON is atomically replaced only when all discovered records succeed. A completed checkpoint is removed; running again after completion starts a new collection. Failed runs return a nonzero exit status and leave the old final dataset intact. Reports are written to `*.scrape-report.json` at the end of a pass. Interrupted passes retain successful checkpoint records but may not have an updated report.
+Final application datasets are replaced only when all discovered records succeed. A completed checkpoint is removed; running again after completion starts a new collection. Failed runs return a nonzero exit status and leave the old final dataset intact. Reports are written to `*.scrape-report.json` at the end of a pass. Interrupted passes retain successful checkpoint records but may not have an updated report. On a successful `mobs` pass, the collector publishes the normalized snapshot, gzip JSONL raw archive, provenance manifest, and report together as the collection outputs.
 
 Item and skill discovery follows pagination links rather than fixed page counts. Requests are sequential, with delays between detail/index requests, bounded HTTP timeouts, and exponential retries for transient failures.
 
@@ -277,11 +277,11 @@ The project roadmap is recorded in `docs/roadmap.md`. Confirmed rules, unresolve
 
 ## SQLite query database
 
-`cargo run -- build-db` rebuilds `data/fo2.sqlite` from the four authoritative JSON snapshots. SQLite is derived output and is gitignored; deleting it never loses scraped source data.
+`cargo run -- build-db` rebuilds `data/fo2.sqlite` from the four authoritative normalized JSON snapshots. SQLite is derived output and is gitignored; deleting it does not affect those tracked snapshots. The separate gitignored mob raw archive is not required for rebuilding SQLite and must be retained independently if its source evidence is needed.
 
-The importer uses schema version 3, one transaction, source-dataset provenance, foreign keys, checked numeric conversion, count verification, `foreign_key_check`, and `integrity_check`. It builds and verifies a unique sibling temporary database before atomically replacing the previous database, so failed rebuilds preserve the last good copy.
+The importer uses schema version 4, one transaction, source-dataset provenance, foreign keys, checked numeric conversion, count verification, `foreign_key_check`, and `integrity_check`. It builds and verifies a unique sibling temporary database before atomically replacing the previous database, so failed rebuilds preserve the last good copy.
 
-The normalized schema covers item descriptions, artwork URLs, typed implant slots, separate price observations, item sets, skill facts/requirements/effects/components, mob combat and debuffs, zones and locations, location-specific drop profiles, drops, and ordered independent rolls. It intentionally excludes the large raw mob HTML retained in JSON. Useful views include `item_prices`, `mob_item_drops`, and `mob_combat`.
+The normalized schema covers item descriptions, artwork URLs, typed implant slots, separate price observations, item sets, skill facts/requirements/effects/components, mob combat and debuffs, zones and locations, location-specific drop profiles, drops, ordered independent rolls, and the explicit mob boss-candidate field. It imports normalized `data/mobs.json` and excludes the separate raw archive. Useful views include `item_prices`, `mob_item_drops`, and `mob_combat`.
 
 Price kinds are `market`, `recently_sold`, and `shop`; none imply a guaranteed future sale. Published map-spawn counts remain separate from the derived 30-second throughput cap, and repeated drop rolls remain separate records.
 

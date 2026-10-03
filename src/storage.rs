@@ -14,7 +14,7 @@ use crate::db::{
 };
 use crate::mobs::{Mob, MobValue};
 
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 
 /// Rebuild `data/fo2.sqlite` from the four authoritative JSON files.
 ///
@@ -167,11 +167,12 @@ fn create_schema(tx: &Transaction<'_>) -> Result<()> {
     tx.execute_batch(
         r#"
         CREATE TABLE schema_version(version INTEGER NOT NULL PRIMARY KEY);
-        INSERT INTO schema_version VALUES (3);
+        INSERT INTO schema_version(version) VALUES (4);
         CREATE TABLE migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, applied_at TEXT NOT NULL);
-        INSERT INTO migrations VALUES (1, 'initial derived query schema', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-        INSERT INTO migrations VALUES (2, 'item descriptions and artwork', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
-        INSERT INTO migrations VALUES (3, 'typed implant slots', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+        INSERT INTO migrations(version, name, applied_at) VALUES (1, 'initial derived query schema', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+        INSERT INTO migrations(version, name, applied_at) VALUES (2, 'item descriptions and artwork', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+        INSERT INTO migrations(version, name, applied_at) VALUES (3, 'typed implant slots', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+        INSERT INTO migrations(version, name, applied_at) VALUES (4, 'normalized mob schema', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
         CREATE TABLE import_runs(
             id INTEGER PRIMARY KEY, schema_version INTEGER NOT NULL,
             imported_at TEXT NOT NULL
@@ -261,25 +262,26 @@ fn create_schema(tx: &Transaction<'_>) -> Result<()> {
             attack_speed_ms INTEGER, attacks INTEGER CHECK(attacks IN (0,1)),
             faction_label TEXT, faction_url TEXT, faction_xp INTEGER,
             required_weapon_label TEXT, required_weapon_url TEXT,
-            aggressive INTEGER CHECK(aggressive IN (0,1)), debuff_skill_count INTEGER
+            aggressive INTEGER CHECK(aggressive IN (0,1)), debuff_skill_count INTEGER,
+            boss_candidate INTEGER NOT NULL CHECK(boss_candidate IN (0,1))
         );
         CREATE TABLE mob_debuffs(
             mob_slug TEXT NOT NULL REFERENCES mobs(slug) ON DELETE CASCADE,
-            debuff_index INTEGER NOT NULL, raw_label TEXT NOT NULL, source_url TEXT,
+            debuff_index INTEGER NOT NULL, debuff_label TEXT NOT NULL, source_url TEXT,
             skill_slug TEXT REFERENCES skills(slug), PRIMARY KEY(mob_slug, debuff_index)
         );
         CREATE TABLE zones(slug TEXT PRIMARY KEY, name TEXT NOT NULL, source_url TEXT);
         CREATE TABLE mob_locations(
             mob_slug TEXT NOT NULL REFERENCES mobs(slug) ON DELETE CASCADE,
             location_index INTEGER NOT NULL, zone_slug TEXT NOT NULL REFERENCES zones(slug),
-            map_location_count INTEGER, raw_label TEXT NOT NULL,
+            map_location_count INTEGER, zone_label TEXT NOT NULL,
             PRIMARY KEY(mob_slug, location_index)
         );
         CREATE TABLE mob_drop_profiles(
             id INTEGER PRIMARY KEY, mob_slug TEXT NOT NULL REFERENCES mobs(slug) ON DELETE CASCADE,
             profile_index INTEGER NOT NULL, summary_label TEXT NOT NULL, zone_label TEXT,
             zone_slug TEXT REFERENCES zones(slug), map_location_count INTEGER,
-            solo_coins_min INTEGER, solo_coins_max INTEGER, raw_label TEXT NOT NULL,
+            solo_coins_min INTEGER, solo_coins_max INTEGER, notice TEXT,
             UNIQUE(mob_slug, profile_index)
         );
         CREATE TABLE mob_drops(
@@ -290,7 +292,7 @@ fn create_schema(tx: &Transaction<'_>) -> Result<()> {
         );
         CREATE TABLE mob_drop_rolls(
             drop_id INTEGER NOT NULL REFERENCES mob_drops(id) ON DELETE CASCADE,
-            roll_index INTEGER NOT NULL, source_label TEXT, chance_percent REAL, raw_label TEXT NOT NULL,
+            roll_index INTEGER NOT NULL, source_label TEXT, chance_percent REAL,
             PRIMARY KEY(drop_id, roll_index)
         );
 
@@ -314,7 +316,8 @@ fn create_schema(tx: &Transaction<'_>) -> Result<()> {
             JOIN mob_drops d ON d.profile_id=p.id;
         CREATE VIEW mob_combat AS
             SELECT slug, name, level, health, damage_min, damage_max, attack_speed_ms, attacks,
-                   aggressive, faction_label, faction_xp, required_weapon_label, debuff_skill_count
+                   aggressive, faction_label, faction_xp, required_weapon_label, debuff_skill_count,
+                   boss_candidate
             FROM mobs;
         "#,
     )?;
@@ -576,7 +579,7 @@ fn import_mobs(tx: &Transaction<'_>, mobs: &[Mob]) -> Result<()> {
             .transpose()?
             .unwrap_or((None, None));
         tx.execute(
-            "INSERT INTO mobs VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
+            "INSERT INTO mobs(slug,name,source_url,level,health,damage_min,damage_max,attack_speed_ms,attacks,faction_label,faction_url,faction_xp,required_weapon_label,required_weapon_url,aggressive,debuff_skill_count,boss_candidate) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
             params![
                 mob.slug,
                 mob.name,
@@ -593,14 +596,15 @@ fn import_mobs(tx: &Transaction<'_>, mobs: &[Mob]) -> Result<()> {
                 value_text(&mob.required_weapon),
                 value_href(&mob.required_weapon),
                 mob.aggressive,
-                opt_u64(mob.debuff_skill_count, "debuff count")?
+                opt_u64(mob.debuff_skill_count, "debuff count")?,
+                mob.boss_candidate
             ],
         )?;
         for (index, debuff) in mob.debuffs.iter().enumerate() {
             let candidate = slug_from_value(debuff, "skills");
             let linked = candidate.as_deref().filter(|slug| skills.contains(*slug));
             tx.execute(
-                "INSERT INTO mob_debuffs VALUES (?1,?2,?3,?4,?5)",
+                "INSERT INTO mob_debuffs(mob_slug,debuff_index,debuff_label,source_url,skill_slug) VALUES (?1,?2,?3,?4,?5)",
                 params![
                     mob.slug,
                     to_i64(index, "debuff index")?,
@@ -620,13 +624,13 @@ fn import_mobs(tx: &Transaction<'_>, mobs: &[Mob]) -> Result<()> {
                 Some(&location.zone.href),
             )?;
             tx.execute(
-                "INSERT INTO mob_locations VALUES (?1,?2,?3,?4,?5)",
+                "INSERT INTO mob_locations(mob_slug,location_index,zone_slug,map_location_count,zone_label) VALUES (?1,?2,?3,?4,?5)",
                 params![
                     mob.slug,
                     to_i64(index, "location index")?,
                     zone_slug,
                     opt_u64(location.map_location_count, "map location count")?,
-                    location.raw.text
+                    location.zone.text
                 ],
             )?;
         }
@@ -649,7 +653,7 @@ fn import_mobs(tx: &Transaction<'_>, mobs: &[Mob]) -> Result<()> {
                 })
                 .transpose()?
                 .unwrap_or((None, None));
-            tx.execute("INSERT INTO mob_drop_profiles(mob_slug,profile_index,summary_label,zone_label,zone_slug,map_location_count,solo_coins_min,solo_coins_max,raw_label) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)", params![mob.slug,to_i64(profile_index,"drop profile index")?,profile.summary.text,profile.zone.as_ref().map(|v|v.text.as_str()),zone_slug,opt_u64(profile.map_location_count,"profile map count")?,coin_min,coin_max,profile.raw.text])?;
+            tx.execute("INSERT INTO mob_drop_profiles(mob_slug,profile_index,summary_label,zone_label,zone_slug,map_location_count,solo_coins_min,solo_coins_max,notice) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)", params![mob.slug,to_i64(profile_index,"drop profile index")?,profile.summary.text,profile.zone.as_ref().map(|v|v.text.as_str()),zone_slug,opt_u64(profile.map_location_count,"profile map count")?,coin_min,coin_max,profile.notice])?;
             let profile_id = tx.last_insert_rowid();
             for (drop_index, drop) in profile.drops.iter().enumerate() {
                 let candidate = slug_from_value(&drop.item, "items");
@@ -658,13 +662,12 @@ fn import_mobs(tx: &Transaction<'_>, mobs: &[Mob]) -> Result<()> {
                 let drop_id = tx.last_insert_rowid();
                 for (roll_index, roll) in drop.rolls.iter().enumerate() {
                     tx.execute(
-                        "INSERT INTO mob_drop_rolls VALUES (?1,?2,?3,?4,?5)",
+                        "INSERT INTO mob_drop_rolls(drop_id,roll_index,source_label,chance_percent) VALUES (?1,?2,?3,?4)",
                         params![
                             drop_id,
                             to_i64(roll_index, "roll index")?,
                             roll.source,
-                            finite(roll.chance_percent, "roll chance")?,
-                            roll.raw.text
+                            finite(roll.chance_percent, "roll chance")?
                         ],
                     )?;
                 }
@@ -800,7 +803,7 @@ mod tests {
     #[test]
     fn keeps_repeated_rolls_and_nullable_unlisted_debuff_fk() {
         let dir = TempDir::new();
-        let mobs = r#"[{"slug":"rat-1","name":"Rat","source_url":"https://example/mobs/rat-1","level":1,"health":2,"damage":null,"attack_speed_ms":null,"attacks":null,"faction":null,"faction_xp":null,"required_weapon":null,"aggressive":null,"debuff_skill_count":2,"debuffs":[{"text":"Slow","links":[{"href":"/skills/slow-1","text":"Slow","aria_label":null}],"html":"large"},{"text":"Unlisted","links":[],"html":"large"}],"locations":[],"drop_profiles":[{"summary":{"text":"one","links":[],"html":"x"},"zone":null,"map_location_count":null,"solo_coins":null,"drops":[{"item":{"text":"Coin","links":[{"href":"/items/coin-1","text":"Coin","aria_label":null}],"html":"x"},"rolls":[{"source":"Spawn","chance_percent":50.0,"raw":{"text":"Spawn 50%","links":[],"html":"x"}},{"source":"Spawn","chance_percent":50.0,"raw":{"text":"Spawn 50%","links":[],"html":"x"}}],"solo_chance_at_least_one_percent":75.0,"maximum_quantity":2,"raw_cells":[]}],"facts":[],"tables":[],"raw":{"text":"profile","links":[],"html":"x"}}],"raw":{"facts":[],"sections":[],"tables":[],"links":[],"source_html":"do not persist"}}]"#;
+        let mobs = r#"[{"slug":"rat-1","name":"Rat","source_url":"https://example/mobs/rat-1","level":1,"health":2,"damage":null,"attack_speed_ms":null,"attacks":null,"faction":null,"faction_xp":null,"required_weapon":null,"aggressive":null,"debuff_skill_count":2,"debuffs":[{"text":"Slow","links":[{"href":"/skills/slow-1","text":"Slow","aria_label":null}]},{"text":"Unlisted","links":[]}],"locations":[{"zone":{"href":"/zones/sewers","text":"Sewers","aria_label":null},"map_location_count":1}],"drop_profiles":[{"summary":{"text":"one","links":[]},"zone":null,"map_location_count":null,"solo_coins":null,"drops":[{"item":{"text":"Coin","links":[{"href":"/items/coin-1","text":"Coin","aria_label":null}]},"rolls":[{"source":"Spawn","chance_percent":50.0},{"source":"Spawn","chance_percent":50.0}],"solo_chance_at_least_one_percent":75.0,"maximum_quantity":2}],"notice":"Solo drop notice"}],"boss_candidate":true}]"#;
         write_sources(&dir.0, mobs);
         build_database_in(&dir.0).unwrap();
         let db = Connection::open(dir.0.join("fo2.sqlite")).unwrap();
@@ -809,6 +812,40 @@ mod tests {
                 .get::<_, i64>(0))
                 .unwrap(),
             2
+        );
+        assert_eq!(
+            db.query_row("SELECT version FROM schema_version", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            4
+        );
+        assert_eq!(
+            db.query_row("SELECT name FROM migrations WHERE version = 4", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap(),
+            "normalized mob schema"
+        );
+        assert_eq!(
+            db.query_row("SELECT boss_candidate FROM mob_combat", [], |r| {
+                r.get::<_, bool>(0)
+            })
+            .unwrap(),
+            true
+        );
+        assert_eq!(
+            db.query_row("SELECT zone_label FROM mob_locations", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap(),
+            "Sewers"
+        );
+        assert_eq!(
+            db.query_row("SELECT notice FROM mob_drop_profiles", [], |r| {
+                r.get::<_, Option<String>>(0)
+            })
+            .unwrap(),
+            Some("Solo drop notice".to_owned())
         );
         assert_eq!(
             db.query_row(

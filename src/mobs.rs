@@ -1,8 +1,8 @@
-//! Mob data as published by the database; no combat or reward calculations.
+//! Normalized mob data as published by the database; no combat or reward calculations.
 //!
 //! Uses the shared retrying HTTP client and pagination-aware discovery.
-//! Optional typed values mean absent/unrecognized, not zero. Raw data is kept
-//! even when a value cannot be interpreted. No boss status is inferred.
+//! Optional typed values mean absent/unrecognized, not zero. Native collection
+//! keeps the source HTML in a separate archive record.
 
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,8 @@ pub struct Mob {
     pub debuffs: Vec<MobValue>,
     pub locations: Vec<MobLocation>,
     pub drop_profiles: Vec<MobDropProfile>,
-    pub raw: MobRawPage,
+    /// Derived solely from the source HTML's boss-achievement marker.
+    pub boss_candidate: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -48,43 +49,6 @@ pub struct MobLink {
 pub struct MobValue {
     pub text: String,
     pub links: Vec<MobLink>,
-    /// Retains nested roll boundaries, attributes, images and line breaks.
-    pub html: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MobFact {
-    pub label: String,
-    pub value: MobValue,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MobTable {
-    pub caption: Option<String>,
-    pub aria_label: Option<String>,
-    pub headers: Vec<MobValue>,
-    pub rows: Vec<Vec<MobValue>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MobSection {
-    pub id: Option<String>,
-    pub heading: Option<String>,
-    pub facts: Vec<MobFact>,
-    pub tables: Vec<MobTable>,
-    pub content: MobValue,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MobRawPage {
-    pub facts: Vec<MobFact>,
-    /// All sections/asides, not just the currently understood ones.
-    pub sections: Vec<MobSection>,
-    pub tables: Vec<MobTable>,
-    pub links: Vec<MobLink>,
-    /// Original response, including structured metadata and update dates.
-    /// This is the lossless fallback for new fields and unrecognized markup.
-    pub source_html: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,7 +56,6 @@ pub struct MobLocation {
     pub zone: MobLink,
     /// Published map-location count, not a spawn count or respawn rate.
     pub map_location_count: Option<u64>,
-    pub raw: MobValue,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -103,10 +66,8 @@ pub struct MobDropProfile {
     /// Inclusive endpoints as displayed for one eligible solo looter.
     pub solo_coins: Option<MobRange>,
     pub drops: Vec<MobDrop>,
-    pub facts: Vec<MobFact>,
-    pub tables: Vec<MobTable>,
-    /// Retains no-drop notices, caveats and any additional profile rules.
-    pub raw: MobValue,
+    /// Published no-drop notice or profile caveat, when present.
+    pub notice: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -115,10 +76,8 @@ pub struct MobDrop {
     /// Ordered independent rolls; intentionally never deduplicated.
     pub rolls: Vec<MobDropRoll>,
     /// Displayed percentage (0–100), not a probability or a computed value.
-    /// Calculator links may contain more precision and remain in raw_cells.
     pub solo_chance_at_least_one_percent: Option<f64>,
     pub maximum_quantity: Option<u64>,
-    pub raw_cells: Vec<MobValue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -126,7 +85,21 @@ pub struct MobDropRoll {
     /// Published source, e.g. Spawn, Global or Zone; not a closed enum.
     pub source: Option<String>,
     pub chance_percent: Option<f64>,
-    pub raw: MobValue,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MobArchiveRecord {
+    pub slug: String,
+    pub source_url: String,
+    pub source_html: String,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MobCapture {
+    pub mob: Mob,
+    pub archive: MobArchiveRecord,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -138,17 +111,39 @@ mod native {
     const BASE_URL: &str = "https://db.fantasyonline2.com";
 
     pub fn fetch_mob(slug: &str) -> Result<Mob> {
+        Ok(fetch_mob_capture(slug)?.mob)
+    }
+
+    pub fn fetch_mob_capture(slug: &str) -> Result<MobCapture> {
+        validate_slug(slug)?;
+        let url = format!("{BASE_URL}/mobs/{slug}");
+        println!("Fetching {url}");
+        let html = crate::scraper::fetch_page(&url)
+            .with_context(|| format!("Could not fetch mob: {url}"))?;
+        capture_mob(slug, html).with_context(|| format!("Could not parse mob: {url}"))
+    }
+
+    fn validate_slug(slug: &str) -> Result<()> {
         // Reject paths/queries before constructing a URL, without assuming IDs
         // will always use today's numeric suffix convention.
         ensure!(
             !slug.is_empty() && slug.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'),
             "Invalid mob slug: {slug}"
         );
-        let url = format!("{BASE_URL}/mobs/{slug}");
-        println!("Fetching {url}");
-        let html = crate::scraper::fetch_page(&url)
-            .with_context(|| format!("Could not fetch mob: {url}"))?;
-        parse_mob(slug, &html).with_context(|| format!("Could not parse mob: {url}"))
+        Ok(())
+    }
+
+    fn capture_mob(slug: &str, source_html: String) -> Result<MobCapture> {
+        let source_url = format!("{BASE_URL}/mobs/{slug}");
+        let mob = parse_mob(slug, &source_html)?;
+        Ok(MobCapture {
+            mob,
+            archive: MobArchiveRecord {
+                slug: slug.to_string(),
+                source_url,
+                source_html,
+            },
+        })
     }
 
     pub fn fetch_mob_slugs() -> Result<Vec<String>> {
@@ -191,8 +186,12 @@ mod native {
         MobValue {
             text: text(element),
             links,
-            html: element.html(),
         }
+    }
+
+    struct MobFact {
+        label: String,
+        value: MobValue,
     }
 
     fn facts(element: ElementRef<'_>) -> Vec<MobFact> {
@@ -239,43 +238,6 @@ mod native {
             .iter()
             .find(|fact| fact.label == label)
             .map(|fact| &fact.value)
-    }
-
-    fn tables(element: ElementRef<'_>) -> Vec<MobTable> {
-        element
-            .select(&selector("table"))
-            .map(|table| {
-                let region_label = table
-                    .ancestors()
-                    .filter_map(ElementRef::wrap)
-                    .find(|e| e.value().attr("role") == Some("region"))
-                    .and_then(|e| e.value().attr("aria-label"))
-                    .map(str::to_string);
-                MobTable {
-                    caption: first(table, "caption").map(text),
-                    aria_label: table
-                        .value()
-                        .attr("aria-label")
-                        .map(str::to_string)
-                        .or(region_label),
-                    headers: table.select(&selector("thead th")).map(value).collect(),
-                    rows: table
-                        .select(&selector("tr"))
-                        .filter_map(|row| {
-                            let cells: Vec<_> = row
-                                .children()
-                                .filter_map(ElementRef::wrap)
-                                .filter(|e| matches!(e.value().name(), "td" | "th"))
-                                .collect();
-                            cells
-                                .iter()
-                                .any(|e| e.value().name() == "td")
-                                .then(|| cells.into_iter().map(value).collect())
-                        })
-                        .collect(),
-                }
-            })
-            .collect()
     }
 
     fn integer(input: &str) -> Option<u64> {
@@ -336,12 +298,11 @@ mod native {
                         leaves
                             .into_iter()
                             .map(|element| {
-                                let raw = value(element);
-                                let parts = raw.text.rsplit_once(' ');
+                                let roll = text(element);
+                                let parts = roll.rsplit_once(' ');
                                 MobDropRoll {
                                     source: parts.map(|(source, _)| source.to_string()),
                                     chance_percent: parts.and_then(|(_, chance)| percent(chance)),
-                                    raw,
                                 }
                             })
                             .collect()
@@ -360,7 +321,6 @@ mod native {
                     rolls,
                     solo_chance_at_least_one_percent: chance,
                     maximum_quantity,
-                    raw_cells: cells.into_iter().map(value).collect(),
                 })
             })
             .collect()
@@ -384,18 +344,25 @@ mod native {
                 .or_else(|| v.text.strip_suffix(" coin"))?;
             range(number)
         });
+        let drops = details
+            .select(&selector("table"))
+            .flat_map(parse_drop_table)
+            .collect::<Vec<_>>();
+        let notice = drops.is_empty().then(|| {
+            details
+                .select(&selector("p"))
+                .map(text)
+                .filter(|text| !text.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n")
+        });
         MobDropProfile {
             summary,
             zone: fact(&profile_facts, "Zone").cloned(),
             map_location_count,
             solo_coins,
-            drops: details
-                .select(&selector("table"))
-                .flat_map(parse_drop_table)
-                .collect(),
-            facts: profile_facts,
-            tables: tables(details),
-            raw: value(details),
+            drops,
+            notice: notice.filter(|notice| !notice.is_empty()),
         }
     }
 
@@ -433,7 +400,6 @@ mod native {
                     ..link(e)
                 },
                 map_location_count: first(e, "small").and_then(|e| map_count(&text(e))),
-                raw: value(e),
             })
             .collect();
         let debuffs = combat
@@ -478,22 +444,7 @@ mod native {
                 .select(&selector("#drops details"))
                 .map(parse_profile)
                 .collect(),
-            raw: MobRawPage {
-                facts: facts(main),
-                sections: main
-                    .select(&selector("section, aside"))
-                    .map(|e| MobSection {
-                        id: e.value().attr("id").map(str::to_string),
-                        heading: first(e, "h2, h3").map(text),
-                        facts: facts(e),
-                        tables: tables(e),
-                        content: value(e),
-                    })
-                    .collect(),
-                tables: tables(main),
-                links: value(main).links,
-                source_html: html.to_string(),
-            },
+            boss_candidate: html.contains("achievement-boss-"),
         })
     }
 
@@ -523,7 +474,7 @@ mod native {
         const ROLLS: &str = r#"<table><thead><tr><th>Item</th><th>Drop rolls</th>
         <th>Solo chance, at least one</th><th>Maximum quantity</th></tr></thead>
         <tbody><tr><td><a href='/items/kings-gold-3115'>King's Gold</a></td>
-        <td><span><span>Spawn 100%</span><span>Spawn 100%</span><span>Spawn 100%</span></span></td>
+        <td><span><span>Spawn 100%</span><span>Global 100%</span><span>Spawn 100%</span></span></td>
         <td>100%<br><a href='/tools/drop-chance-calculator#chance=100&amp;sr=100&amp;sr=100&amp;sr=100'>Plan attempts</a></td>
         <td>Up to <!-- -->3</td></tr></tbody></table>"#;
 
@@ -536,7 +487,7 @@ mod native {
         }
 
         #[test]
-        fn boss_repeated_rolls_and_lossless_roundtrip() {
+        fn repeated_rolls_and_normalized_roundtrip() {
             let extra = format!(
                 "<section id='drops'><h2>Coins and drops</h2>{}</section>",
                 profile("King's Keep", "125,000–174,999 coins", ROLLS)
@@ -549,6 +500,7 @@ mod native {
                 &extra,
             );
             let mob = parse_mob("the-false-king-507", &html).unwrap();
+            assert!(!mob.boss_candidate);
             assert_eq!(mob.health, Some(8_888_888));
             assert_eq!(
                 mob.damage,
@@ -580,16 +532,23 @@ mod native {
                 profile.drops[0].solo_chance_at_least_one_percent,
                 Some(100.0)
             );
-            assert!(
-                profile.drops[0].raw_cells[2].links[0]
-                    .href
-                    .ends_with("&sr=100&sr=100&sr=100")
-            );
-            assert_eq!(mob.raw.source_html, html);
             assert_eq!(
-                serde_json::from_str::<Mob>(&serde_json::to_string(&mob).unwrap()).unwrap(),
-                mob
+                profile.drops[0]
+                    .rolls
+                    .iter()
+                    .map(|roll| roll.source.as_deref())
+                    .collect::<Vec<_>>(),
+                vec![Some("Spawn"), Some("Global"), Some("Spawn")]
             );
+            assert_eq!(profile.notice, None);
+            assert_eq!(
+                profile.drops[0].item.links[0].href,
+                "/items/kings-gold-3115"
+            );
+            assert_eq!(mob.faction.as_ref().unwrap().links[0].text, "King's Watch");
+            let json = serde_json::to_string(&mob).unwrap();
+            assert!(!json.contains("source_html"));
+            assert_eq!(serde_json::from_str::<Mob>(&json).unwrap(), mob);
         }
 
         #[test]
@@ -617,6 +576,11 @@ mod native {
             .unwrap();
             assert_eq!(mob.locations[0].map_location_count, Some(11));
             assert_eq!(mob.locations[0].zone.text, "Noob Island");
+            assert_eq!(mob.locations[0].zone.href, "/zones/noob-island-1");
+            assert_eq!(
+                mob.locations[0].zone.aria_label.as_deref(),
+                Some("Noob Island. 11 map locations")
+            );
             assert_eq!(mob.drop_profiles.len(), 2);
             assert_eq!(
                 mob.drop_profiles[0].solo_coins,
@@ -633,7 +597,7 @@ mod native {
         }
 
         #[test]
-        fn non_attacking_no_drops_and_unknown_facts_survive() {
+        fn non_attacking_no_drops_and_absent_values() {
             let extra = format!(
                 "<section id='drops'>{}</section><section id='future'><h2>Future traits</h2><dl><dt>Armor</dt><dd>Unpublished</dd></dl></section>",
                 profile("Test zone", "0 coins", "<p>No item drops.</p>")
@@ -647,8 +611,14 @@ mod native {
             assert_eq!(mob.attack_speed_ms, None);
             assert_eq!(mob.damage, Some(MobRange { min: 0, max: 0 }));
             assert!(mob.drop_profiles[0].drops.is_empty());
-            assert!(mob.drop_profiles[0].raw.text.contains("No item drops."));
-            assert_eq!(fact(&mob.raw.facts, "Armor").unwrap().text, "Unpublished");
+            assert_eq!(
+                mob.drop_profiles[0].notice.as_deref(),
+                Some("No item drops.")
+            );
+            assert_eq!(
+                mob.drop_profiles[0].solo_coins,
+                Some(MobRange { min: 0, max: 0 })
+            );
             let absent = parse_mob(
                 "test-1",
                 &page("Test", "unknown HP", "unknown", "Unknown", ""),
@@ -657,7 +627,7 @@ mod native {
             assert_eq!(absent.health, None);
             assert_eq!(absent.attacks, None);
             assert!(absent.drop_profiles.is_empty());
-            assert_ne!(absent.raw.source_html, mob.raw.source_html);
+            assert!(!absent.boss_candidate);
         }
 
         #[test]
@@ -680,7 +650,52 @@ mod native {
             assert_eq!(mob.aggressive, Some(false));
             assert_eq!(mob.debuff_skill_count, Some(1));
             assert_eq!(mob.debuffs[0].text, "Unlisted debuff");
-            assert_eq!(mob.raw.tables[0].headers[0].text, "Debuff skill");
+            assert!(mob.debuffs[0].links.is_empty());
+        }
+
+        #[test]
+        fn archive_roundtrip_is_lossless_and_separate() {
+            let html = page(
+                "Archived Mob",
+                "10",
+                "1–2",
+                "1,000 ms (1 sec)",
+                "<!-- exact archive bytes: &amp; -->",
+            );
+            let capture = capture_mob("archived-mob-1", html.clone()).unwrap();
+            assert_eq!(capture.archive.slug, "archived-mob-1");
+            assert_eq!(capture.archive.source_url, capture.mob.source_url);
+            assert_eq!(capture.archive.source_html, html);
+            assert_eq!(
+                serde_json::from_str::<MobArchiveRecord>(
+                    &serde_json::to_string(&capture.archive).unwrap()
+                )
+                .unwrap(),
+                capture.archive
+            );
+        }
+
+        #[test]
+        fn boss_candidate_comes_only_from_source_html_marker() {
+            let named_boss = parse_mob(
+                "boss-1",
+                &page("Definitely A Boss", "10", "1–2", "1,000 ms (1 sec)", ""),
+            )
+            .unwrap();
+            assert!(!named_boss.boss_candidate);
+
+            let marked = parse_mob(
+                "ordinary-1",
+                &page(
+                    "Ordinary Mob",
+                    "10",
+                    "1–2",
+                    "1,000 ms (1 sec)",
+                    "<img src='/assets/achievement-boss-example.svg'>",
+                ),
+            )
+            .unwrap();
+            assert!(marked.boss_candidate);
         }
 
         #[test]
@@ -694,10 +709,11 @@ mod native {
             }
             for slug in ["", "../items/test-1", "test-1?x=1", "test-1#fragment"] {
                 assert!(fetch_mob(slug).is_err());
+                assert!(fetch_mob_capture(slug).is_err());
             }
         }
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub use native::{fetch_mob, fetch_mob_slugs};
+pub use native::{fetch_mob, fetch_mob_capture, fetch_mob_slugs};

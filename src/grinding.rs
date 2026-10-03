@@ -295,7 +295,7 @@ fn is_resource_target(mob: &Mob) -> bool {
 }
 
 fn is_boss_candidate(mob: &Mob) -> bool {
-    mob.raw.source_html.contains("achievement-boss-")
+    mob.boss_candidate
 }
 
 fn known_gold_per_hour(estimate: &GrindingEstimate) -> Option<f64> {
@@ -798,7 +798,7 @@ mod tests {
     use super::*;
     use crate::db::{ItemRequirements, ItemStats};
     use crate::encounter::{EnergyAssumptions, SimultaneousEventOrder};
-    use crate::mobs::{MobDropRoll, MobLink, MobRange, MobRawPage, MobValue};
+    use crate::mobs::{MobDropRoll, MobLink, MobRange, MobValue};
 
     fn value(text: &str, href: Option<&str>) -> MobValue {
         MobValue {
@@ -812,7 +812,6 @@ mod tests {
                     }]
                 })
                 .unwrap_or_default(),
-            html: String::new(),
         }
     }
 
@@ -823,17 +822,14 @@ mod tests {
                 MobDropRoll {
                     source: Some("Spawn".into()),
                     chance_percent: Some(50.0),
-                    raw: value("", None),
                 },
                 MobDropRoll {
                     source: Some("Global".into()),
                     chance_percent: Some(25.0),
-                    raw: value("", None),
                 },
             ],
             solo_chance_at_least_one_percent: Some(62.5),
             maximum_quantity: Some(3),
-            raw_cells: Vec::new(),
         };
         let mob = Mob {
             slug: "mob".into(),
@@ -857,17 +853,9 @@ mod tests {
                 map_location_count: Some(4),
                 solo_coins: Some(MobRange { min: 10, max: 20 }),
                 drops: vec![drop],
-                facts: Vec::new(),
-                tables: Vec::new(),
-                raw: value("", None),
+                notice: None,
             }],
-            raw: MobRawPage {
-                facts: Vec::new(),
-                sections: Vec::new(),
-                tables: Vec::new(),
-                links: Vec::new(),
-                source_html: String::new(),
-            },
+            boss_candidate: false,
         };
         let item = Item {
             name: "Loot".into(),
@@ -1185,7 +1173,7 @@ mod tests {
         resource.required_weapon = Some(value("Mining tool", None));
         let mut boss = normal.clone();
         boss.slug = "boss".into();
-        boss.raw.source_html = "achievement-boss-example-icon.png".into();
+        boss.boss_candidate = true;
 
         let included = grinding_leaderboard(
             &[normal.clone(), resource.clone(), boss.clone()],

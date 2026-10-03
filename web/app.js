@@ -1,6 +1,6 @@
 "use strict";
 
-const EXPECTED_WEB_BUILD_ID = "2026-09-28-static-pages-v27";
+const EXPECTED_WEB_BUILD_ID = "2026-10-02-normalized-mobs-v28";
 const STATIC_RUNTIME = document.documentElement.dataset.runtime === "static";
 let staticRuntimePromise = null;
 

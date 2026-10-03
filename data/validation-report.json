@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "summary": {
     "errors": 0,
     "warnings": 83,
@@ -56,9 +56,6 @@
     "drop.maximum_quantity": {
       "present": 3230
     },
-    "drop.raw_cells": {
-      "present": 3230
-    },
     "drop.rolls": {
       "present": 3230
     },
@@ -73,12 +70,6 @@
     },
     "effect.effect_type": {
       "present": 388
-    },
-    "fact.label": {
-      "present": 11484
-    },
-    "fact.value": {
-      "present": 11484
     },
     "item.ascension": {
       "explicit_false": 3133,
@@ -146,19 +137,16 @@
       "present": 7
     },
     "link.aria_label": {
-      "null_unknown_or_not_applicable": 34544,
-      "present": 29674
-    },
-    "link.href": {
-      "present": 64218
-    },
-    "link.text": {
-      "present": 64218
-    },
-    "location.map_location_count": {
+      "null_unknown_or_not_applicable": 4392,
       "present": 490
     },
-    "location.raw": {
+    "link.href": {
+      "present": 4882
+    },
+    "link.text": {
+      "present": 4882
+    },
+    "location.map_location_count": {
       "present": 490
     },
     "location.zone": {
@@ -175,6 +163,10 @@
     "mob.attacks": {
       "explicit_false": 21,
       "explicit_true": 446
+    },
+    "mob.boss_candidate": {
+      "explicit_false": 415,
+      "explicit_true": 52
     },
     "mob.damage": {
       "present": 467
@@ -209,9 +201,6 @@
     "mob.name": {
       "present": 467
     },
-    "mob.raw": {
-      "present": 467
-    },
     "mob.required_weapon": {
       "present": 467
     },
@@ -221,15 +210,12 @@
     "mob.source_url": {
       "present": 467
     },
-    "mob_value.html": {
-      "present": 83976
-    },
     "mob_value.links": {
-      "empty_array": 47372,
-      "present": 36604
+      "empty_array": 997,
+      "present": 4392
     },
     "mob_value.text": {
-      "present": 83976
+      "present": 5389
     },
     "modifier.stat": {
       "present": 355
@@ -265,22 +251,16 @@
     "profile.drops": {
       "present": 513
     },
-    "profile.facts": {
-      "present": 513
-    },
     "profile.map_location_count": {
       "present": 513
     },
-    "profile.raw": {
-      "present": 513
+    "profile.notice": {
+      "null_unknown_or_not_applicable": 513
     },
     "profile.solo_coins": {
       "present": 513
     },
     "profile.summary": {
-      "present": 513
-    },
-    "profile.tables": {
       "present": 513
     },
     "profile.zone": {
@@ -306,21 +286,6 @@
     "range64.min": {
       "present": 943,
       "zero": 37
-    },
-    "raw_page.facts": {
-      "present": 467
-    },
-    "raw_page.links": {
-      "present": 467
-    },
-    "raw_page.sections": {
-      "present": 467
-    },
-    "raw_page.source_html": {
-      "present": 467
-    },
-    "raw_page.tables": {
-      "present": 467
     },
     "requirements.agility": {
       "null_unknown_or_not_applicable": 3003,
@@ -354,30 +319,8 @@
       "null_unknown_or_not_applicable": 1,
       "present": 3766
     },
-    "roll.raw": {
-      "present": 3767
-    },
     "roll.source": {
       "present": 3767
-    },
-    "section.content": {
-      "present": 3801
-    },
-    "section.facts": {
-      "empty_array": 2400,
-      "present": 1401
-    },
-    "section.heading": {
-      "null_unknown_or_not_applicable": 467,
-      "present": 3334
-    },
-    "section.id": {
-      "null_unknown_or_not_applicable": 2400,
-      "present": 1401
-    },
-    "section.tables": {
-      "empty_array": 3185,
-      "present": 616
     },
     "set.bonus_rule": {
       "present": 21
@@ -487,18 +430,6 @@
     "stats.strength": {
       "null_unknown_or_not_applicable": 2779,
       "present": 424
-    },
-    "table.aria_label": {
-      "present": 1837
-    },
-    "table.caption": {
-      "null_unknown_or_not_applicable": 1837
-    },
-    "table.headers": {
-      "present": 1837
-    },
-    "table.rows": {
-      "present": 1837
     },
     "threat.multiplier": {
       "present": 8
@@ -981,7 +912,6 @@
       "path": "mobs.json/11/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -992,7 +922,6 @@
       "path": "mobs.json/56/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1003,7 +932,6 @@
       "path": "mobs.json/74/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1014,7 +942,6 @@
       "path": "mobs.json/75/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1025,7 +952,6 @@
       "path": "mobs.json/239/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1036,7 +962,6 @@
       "path": "mobs.json/240/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1047,7 +972,6 @@
       "path": "mobs.json/241/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1058,7 +982,6 @@
       "path": "mobs.json/252/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1069,7 +992,6 @@
       "path": "mobs.json/275/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1080,7 +1002,6 @@
       "path": "mobs.json/276/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1091,7 +1012,6 @@
       "path": "mobs.json/278/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1102,7 +1022,6 @@
       "path": "mobs.json/284/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1113,7 +1032,6 @@
       "path": "mobs.json/285/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1124,7 +1042,6 @@
       "path": "mobs.json/325/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1135,7 +1052,6 @@
       "path": "mobs.json/392/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1146,7 +1062,6 @@
       "path": "mobs.json/403/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -1157,7 +1072,6 @@
       "path": "mobs.json/404/debuffs/0",
       "message": "No usable skills slug; name alone does not establish identity",
       "evidence": {
-        "html": "<td>Unlisted debuff</td>",
         "links": [],
         "text": "Unlisted debuff"
       }
@@ -26751,7 +26665,7 @@
     "Null means unknown or not applicable, never numeric zero; only explicit source states establish no cooldown/no timed duration/does not attack.",
     "Zone checks compare published identifiers internally; no authoritative zones dataset is available.",
     "Rolls are independent ordered entries: repeated rolls are allowed, percentages are not summed, and displayed rounded probabilities are not recomputed.",
-    "Raw HTML and source wording are retained but not interpreted as a closed schema; coverage does not imply semantic understanding.",
+    "Normalized mob records preserve selected published text and links; source HTML is archived separately and is not validated here.",
     "Name-only legacy matching cannot establish identity or prove an item was removed."
   ]
 }

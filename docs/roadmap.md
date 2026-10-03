@@ -1,6 +1,6 @@
 # FO2 Calculator Roadmap
 
-This roadmap turns the scraped Fantasy Online 2 snapshots into a validated, queryable combat and grinding calculator. Each phase should preserve raw source data, identify assumptions explicitly, and avoid presenting unknown mechanics as facts.
+This roadmap turns the scraped Fantasy Online 2 snapshots into a validated, queryable combat and grinding calculator. Each phase should preserve raw source evidence in the appropriate separate archive, identify assumptions explicitly, and avoid presenting unknown mechanics as facts.
 
 ## Table of contents
 
@@ -26,11 +26,11 @@ Validate relationships and data quality before adding formulas:
 
 Deliverable: a repeatable `validate-data` command and `data/validation-report.json`. Validation reports issues but never removes or rewrites source records.
 
-Current status: validation covers 3,162 items, 335 canonical scraped skills, 23 source-backed supplemental pet ranks (358 merged skills), 21 sets, and 457 mobs. All resolvable item-drop, set-piece, skill-debuff, and zone relationships pass with zero confirmed errors. Supplemental records use teaching-item slugs rather than invented canonical IDs and are merged with duplicate-slug rejection. Remaining warnings document source limitations and intentionally untyped data; they are not silently treated as valid mechanics. A fresh public-database rescan and teaching-item audit remain necessary because several taught utility/teleport ranks are absent from the canonical snapshot.
+Current status: validation covers 3,162 items, 335 canonical scraped skills, 23 source-backed supplemental pet ranks (358 merged skills), 21 sets, and 467 mobs. All resolvable item-drop, set-piece, skill-debuff, and zone relationships pass with zero confirmed errors. Supplemental records use teaching-item slugs rather than invented canonical IDs and are merged with duplicate-slug rejection. Remaining warnings document source limitations and intentionally untyped data; they are not silently treated as valid mechanics. A fresh public-database rescan and teaching-item audit remain necessary because several taught utility/teleport ranks are absent from the canonical snapshot.
 
 ## 2. Add SQLite as the application query layer — initial schema complete
 
-Keep JSON snapshots as archival/interchange data and generate a versioned SQLite database for application queries.
+Keep normalized JSON snapshots as application/interchange data, preserve lossless mob source evidence in its separate gzip JSONL archive, and generate a versioned SQLite database for application queries.
 
 Candidate areas:
 
@@ -46,7 +46,7 @@ Use stable slugs/IDs, preserve repeated drop rolls, retain unknown/raw values, i
 
 Deliverable: a rebuildable database and `build-db` command. SQLite is derived data; JSON snapshots remain the source of truth.
 
-Current status: `build-db` transactionally imports the current snapshots into `data/fo2.sqlite`, records source provenance, validates source/table counts, and runs SQLite integrity and foreign-key checks before atomic publication. The initial schema includes indexed item, price, set, skill/effect, mob, zone, debuff, location, drop-profile, drop, and independent-roll tables plus query views. Schema version 3 includes item descriptions, artwork URLs, and description-backed typed implant slots. Future schema changes should continue to be recorded as migrations rather than destructive assumptions.
+Current status: `build-db` transactionally imports the current normalized snapshots into `data/fo2.sqlite`, records source provenance, validates source/table counts, and runs SQLite integrity and foreign-key checks before atomic publication. The initial schema includes indexed item, price, set, skill/effect, mob, zone, debuff, location, drop-profile, drop, and independent-roll tables plus query views. Schema version 4 includes item descriptions, artwork URLs, description-backed typed implant slots, the normalized mob schema, and its explicit boss-candidate field. Future schema changes should continue to be recorded as migrations rather than destructive assumptions.
 
 ## 3. Establish and document game rules — in progress
 
@@ -129,7 +129,7 @@ Initial deliverables:
 - Preserve calculator inputs locally and show raw assumptions/results
 - Accessible desktop and mobile interaction
 
-Current status: `src/web.rs` implements a dependency-free local HTTP server with embedded frontend assets and bounded request bodies. Compact APIs expose items, mobs, merged skills, sets, factions, build inspection, encounters, and grinding calculations. The responsive frontend provides searchable data exploration; artwork-backed equipment, buff/morph, and pet pickers with top-layer tooltips; a visual equipment/implant/outfit board; live build validation; active-set summaries; confirmed derived stats; in-combat Energy regeneration; and top-three castable attack-skill recommendations with burst/sustained DPS. Encounter and Grinding reuse the current Build Lab automatically. Grinding supports faction-scoped rankings, shop-only sustainable gold valuation, detailed coin/item/shop handling breakdowns, saved preferences, attack-reset-aware one-shot cycles, optional loot-click limits, and published spawn-throughput caps that are automatic for zero-second cycles and optional otherwise. Inputs persist locally, advanced JSON remains available for inspection/import/export, and frontend/backend build IDs detect stale running servers. Launch the native app with `fo2-dps serve [address]`; the safe default is `127.0.0.1:8787`. A serverless GitHub Pages build is also implemented: the calculator core compiles to WebAssembly, the existing route contracts dispatch in-browser, and `build-web-bundle` removes archival HTML from the compact static dataset. `scripts/build-pages.sh` assembles the no-billing `dist/` artifact, while `.github/workflows/pages.yml` validates and deploys it through GitHub Pages.
+Current status: `src/web.rs` implements a dependency-free local HTTP server with embedded frontend assets and bounded request bodies. Compact APIs expose items, mobs, merged skills, sets, factions, build inspection, encounters, and grinding calculations. The responsive frontend provides searchable data exploration; artwork-backed equipment, buff/morph, and pet pickers with top-layer tooltips; a visual equipment/implant/outfit board; live build validation; active-set summaries; confirmed derived stats; in-combat Energy regeneration; and top-three castable attack-skill recommendations with burst/sustained DPS. Encounter and Grinding reuse the current Build Lab automatically. Grinding supports faction-scoped rankings, shop-only sustainable gold valuation, detailed coin/item/shop handling breakdowns, saved preferences, attack-reset-aware one-shot cycles, optional loot-click limits, and published spawn-throughput caps that are automatic for zero-second cycles and optional otherwise. Inputs persist locally, advanced JSON remains available for inspection/import/export, and frontend/backend build IDs detect stale running servers. Launch the native app with `fo2-dps serve [address]`; the safe default is `127.0.0.1:8787`. A serverless GitHub Pages build is also implemented: the calculator core compiles to WebAssembly, the existing route contracts dispatch in-browser, and `build-web-bundle` combines the normalized snapshots without destructively compacting mobs. The current schema-v2 bundle is about 4.17 MiB, and Pages never ships the separate raw mob archive. `scripts/build-pages.sh` assembles the no-billing `dist/` artifact, while `.github/workflows/pages.yml` validates and deploys it through GitHub Pages.
 
 Next priorities:
 
@@ -138,4 +138,3 @@ Next priorities:
 3. Decide and implement two-handed/off-hand compatibility once the game rule is confirmed.
 4. Add saved named builds/scenarios and improve route-comparison visualization.
 5. Audit narrow responsive layouts and continue replacing raw JSON-first detail views with task-specific summaries.
-6. Split compact normalized mob data from archived raw HTML to reduce startup memory and time.

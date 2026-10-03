@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "record_count": 467,
+  "normalized_path": "data/mobs.json",
+  "normalized_sha256": "e0467e0e40903051d8afaa748a264e173fa00611207d1fcc321881178c173197",
+  "archive_path": "data/mobs.raw.jsonl.gz",
+  "archive_format": "jsonl+gzip",
+  "archive_sha256": "93bf6d29d3a901feb67d2d8170f7f61769d9a79f85d53eebc26e46937373c99e"
+}

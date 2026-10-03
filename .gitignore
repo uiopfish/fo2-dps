@@ -4,3 +4,5 @@
 /data/*.sqlite
 /data/.fo2.sqlite.*.tmp
 /data/debug-*.html
+/data/*.partial.jsonl
+/data/*.raw.jsonl.gz

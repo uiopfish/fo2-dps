@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{Context, Result, ensure};
 
 use crate::db::{Item, ItemSet, Skill, load_skills};
-use crate::mobs::{Mob, MobValue};
+use crate::mobs::Mob;
 use crate::web::{WEB_BUILD_ID, WebBundle, WebData, dispatch_json};
 
 const DIST_DIR: &str = "dist";
@@ -14,11 +14,10 @@ pub fn build_web_bundle() -> Result<()> {
     let items: Vec<Item> = load_json("data/items.json")?;
     let item_sets: Vec<ItemSet> = load_json("data/item-sets.json")?;
     let skills: Vec<Skill> = load_skills()?;
-    let mut mobs: Vec<Mob> = load_json("data/mobs.json")?;
-    mobs.iter_mut().for_each(compact_mob);
+    let mobs: Vec<Mob> = load_json("data/mobs.json")?;
 
     let bundle = WebBundle {
-        schema_version: 1,
+        schema_version: 2,
         web_build_id: WEB_BUILD_ID.to_owned(),
         items,
         item_sets,
@@ -99,58 +98,4 @@ fn verify_bundle(bundle: &WebBundle) -> Result<()> {
         "bundle mob count mismatch"
     );
     Ok(())
-}
-
-fn compact_mob(mob: &mut Mob) {
-    let boss_candidate = mob.raw.source_html.contains("achievement-boss-");
-    mob.raw.facts.clear();
-    mob.raw.sections.clear();
-    mob.raw.tables.clear();
-    mob.raw.links.clear();
-    mob.raw.source_html = if boss_candidate {
-        "achievement-boss-".to_owned()
-    } else {
-        String::new()
-    };
-
-    if let Some(value) = &mut mob.faction {
-        compact_value(value);
-    }
-    if let Some(value) = &mut mob.required_weapon {
-        compact_value(value);
-    }
-    for value in &mut mob.debuffs {
-        compact_value(value);
-    }
-    for location in &mut mob.locations {
-        compact_value(&mut location.raw);
-    }
-    for profile in &mut mob.drop_profiles {
-        compact_value(&mut profile.summary);
-        if let Some(zone) = &mut profile.zone {
-            compact_value(zone);
-        }
-        profile.facts.clear();
-        profile.tables.clear();
-        compact_value(&mut profile.raw);
-        for drop in &mut profile.drops {
-            compact_value(&mut drop.item);
-            drop.raw_cells.clear();
-            for roll in &mut drop.rolls {
-                roll.raw = empty_value();
-            }
-        }
-    }
-}
-
-fn compact_value(value: &mut MobValue) {
-    value.html.clear();
-}
-
-fn empty_value() -> MobValue {
-    MobValue {
-        text: String::new(),
-        links: Vec::new(),
-        html: String::new(),
-    }
 }
