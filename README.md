@@ -1,11 +1,16 @@
-# Fantasy Online 2 data collector
+# Fantasy Online 2 DPS & Grinding Calculator
 
-Rust CLI for collecting data for a future DPS calculator from https://db.fantasyonline2.com.
+A data-backed character-build, combat, and farming calculator for [Fantasy Online 2](https://fantasyonline2.com/). The application combines a Rust calculation engine, a responsive browser interface, WebAssembly support for static hosting, and a resumable collection pipeline for data from the [Fantasy Online 2 Player Database](https://db.fantasyonline2.com/).
+
+**Web app:** https://uiopfish.github.io/fo2-dps/
+
+The calculator can inspect character builds, derive confirmed combat stats, estimate encounters, compare grinding routes, and explore the underlying item, skill, set, mob, drop, and economy data. Unknown mechanics remain explicit instead of being replaced with guessed formulas.
 
 ## Table of contents
 
-- [Commands](#commands)
+- [Features](#features)
 - [Web application](#web-application)
+- [Commands](#commands)
 - [Static GitHub Pages deployment](#static-github-pages-deployment)
 - [Character build inspection](#character-build-inspection)
 - [Encounter estimates](#encounter-estimates)
@@ -16,6 +21,45 @@ Rust CLI for collecting data for a future DPS calculator from https://db.fantasy
 - [Dataset validation](#dataset-validation)
 - [SQLite query database](#sqlite-query-database)
 - [Validation](#validation)
+
+## Features
+
+- Browser-based Build Lab with equipment, implant, buff, morph, pet, and skill selection
+- Live build validation and inspectable derived-stat breakdowns
+- Expected-event encounter estimates using the current character build
+- Grinding leaderboards and route comparisons for gold and faction XP per hour
+- Searchable item, mob, skill, and item-set explorer
+- Portable build import/export and browser-local workspace persistence
+- Serverless WebAssembly deployment with no hosted API or database
+- Native Rust CLI, local HTTP application, data validation, scraping, and SQLite export tools
+
+## Web application
+
+Use the hosted calculator at https://uiopfish.github.io/fo2-dps/ or start the native local application with:
+
+```sh
+cargo run -- serve
+```
+
+Then open http://127.0.0.1:8787. A custom bind address can be supplied with `cargo run -- serve 127.0.0.1:9000`. Keep the default loopback binding unless you intentionally want other machines to reach the unauthenticated local API.
+
+The same dependency-free frontend runs through WebAssembly on GitHub Pages or is embedded into the native Rust server. It provides:
+
+- Archive dashboard with live dataset counts
+- Searchable, paginated item, mob, skill, and item-set explorer
+- Compact mob details that omit the large archived raw HTML
+- Shared, browser-persisted character build workspace
+- Build inspection and validation
+- Encounter calculations
+- Single-target grinding estimates
+- Multi-route grinding comparisons
+- Responsive layouts, keyboard-accessible navigation, loading/error states, and reduced-motion support
+
+Guided forms are the default workflow: progression and attribute inputs, visual equipment and active-effect slot boards, skill rows with archive-backed suggestions, typed encounter controls, grinding policies, and consumable-cost rows. Fresh builds start at level 1 with 20 base points in every attribute and zero allocated points. Available, assigned, and unassigned allocation points update immediately from the Spawn/Rebirth/Ascension budget formulas. Displayed attribute totals start at base 20 plus allocations, then refresh with item/set totals from automatic server inspection. Clicking an equipment, outfit, or implant slot opens a searchable picker restricted to compatible item categories, with requirements and detail links. The six-slot Implants tab appears only for Ascension builds and uses the game's designated Brain, Heart, Left Arm, Right Arm, Left Leg, and Right Leg positions. Implant pickers and build validation enforce the body-part category from each item's typed `implant_slot`, derived from its published description; an implant cannot be equipped into another body-part slot. Build validation is live and debounced: level, progression, allocations, equipment, skills, active roles, imported JSON, and slot changes automatically refresh validation and stat breakdowns without an Inspect button. `sacred-gauntlet-implant-1492` is classified as Left Arm from its published “Implant for your Left Arm.” description, not from its slug. All 68 current implants have exactly one description-backed designated slot. Outfit choices are cosmetic/local and do not enter combat calculations. Advanced JSON panels remain available for exact schema editing and troubleshooting. Character builds can be downloaded or imported as portable JSON files, and all workspaces persist locally in the browser.
+
+The build result is a dedicated character sheet rather than a generic metric sample. It shows confirmed maximum Health and Energy from total post-equipment attributes, raw Armor, Attack Power when final-attribute leadership is unambiguous, basic-attack panel damage, attack interval, bounded two-second out-of-combat Health/Energy Regen candidates, a base/allocated/gear/set/total attribute table, direct modifiers, active set tiers, selected skills, validation errors, and unresolved mechanics. Skill/buff/pet periodic regeneration remains separately effect-defined and always active for the effect duration. The all-source Crit soft cap and piecewise Dodge rule are active; the conflicting level-103 Crit screenshot reading and equipment-regeneration interaction remain documented rather than hidden.
+
+Read-only/list APIs include `/api/summary`, `/api/items`, `/api/mobs`, `/api/skills`, and `/api/item-sets`, with `search`, `offset`, and `limit` query parameters. Calculator APIs are `/api/build/inspect`, `/api/encounter/{mob-slug}`, `/api/grind/{mob-slug}`, `/api/grind/compare`, and `/api/grind/leaderboard`. Requests are limited to 2 MiB. The server loads the authoritative JSON snapshots at startup; because `data/mobs.json` retains raw source HTML, initial loading may take a few seconds.
 
 ## Commands
 
@@ -41,34 +85,6 @@ cargo run -- serve
 ```
 
 `item-sets` writes `data/item-sets.json`. `items-audit` reads that dataset and fetches its distinct item slugs into `data/item-audit.json`, without replacing the full item dataset.
-
-## Web application
-
-Start the local GUI with:
-
-```sh
-cargo run -- serve
-```
-
-Then open http://127.0.0.1:8787. A custom bind address can be supplied with `cargo run -- serve 127.0.0.1:9000`. Keep the default loopback binding unless you intentionally want other machines to reach the unauthenticated local API.
-
-The dependency-free web app is embedded into the Rust binary and provides:
-
-- Archive dashboard with live dataset counts
-- Searchable, paginated item, mob, skill, and item-set explorer
-- Compact mob details that omit the large archived raw HTML
-- Shared, browser-persisted character build workspace
-- Build inspection and validation
-- Encounter calculations
-- Single-target grinding estimates
-- Multi-route grinding comparisons
-- Responsive layouts, keyboard-accessible navigation, loading/error states, and reduced-motion support
-
-Guided forms are the default workflow: progression and attribute inputs, visual equipment and active-effect slot boards, skill rows with archive-backed suggestions, typed encounter controls, grinding policies, and consumable-cost rows. Fresh builds start at level 1 with 20 base points in every attribute and zero allocated points. Available, assigned, and unassigned allocation points update immediately from the Spawn/Rebirth/Ascension budget formulas. Displayed attribute totals start at base 20 plus allocations, then refresh with item/set totals from automatic server inspection. Clicking an equipment, outfit, or implant slot opens a searchable picker restricted to compatible item categories, with requirements and detail links. The six-slot Implants tab appears only for Ascension builds and uses the game's designated Brain, Heart, Left Arm, Right Arm, Left Leg, and Right Leg positions. Implant pickers and build validation enforce the body-part category from each item's typed `implant_slot`, derived from its published description; an implant cannot be equipped into another body-part slot. Build validation is live and debounced: level, progression, allocations, equipment, skills, active roles, imported JSON, and slot changes automatically refresh validation and stat breakdowns without an Inspect button. `sacred-gauntlet-implant-1492` is classified as Left Arm from its published “Implant for your Left Arm.” description, not from its slug. All 68 current implants have exactly one description-backed designated slot. Outfit choices are cosmetic/local and do not enter combat calculations. Advanced JSON panels remain available for exact schema editing and troubleshooting. Character builds can be downloaded or imported as portable JSON files, and all workspaces persist locally in the browser.
-
-The build result is a dedicated character sheet rather than a generic metric sample. It shows confirmed maximum Health and Energy from total post-equipment attributes, raw Armor, Attack Power when final-attribute leadership is unambiguous, basic-attack panel damage, attack interval, bounded two-second out-of-combat Health/Energy Regen candidates, a base/allocated/gear/set/total attribute table, direct modifiers, active set tiers, selected skills, validation errors, and unresolved mechanics. Skill/buff/pet periodic regeneration remains separately effect-defined and always active for the effect duration. The all-source Crit soft cap and piecewise Dodge rule are active; the conflicting level-103 Crit screenshot reading and equipment-regeneration interaction remain documented rather than hidden.
-
-Read-only/list APIs include `/api/summary`, `/api/items`, `/api/mobs`, `/api/skills`, and `/api/item-sets`, with `search`, `offset`, and `limit` query parameters. Calculator APIs are `/api/build/inspect`, `/api/encounter/{mob-slug}`, `/api/grind/{mob-slug}`, `/api/grind/compare`, and `/api/grind/leaderboard`. Requests are limited to 2 MiB. The server loads the authoritative JSON snapshots at startup; because `data/mobs.json` retains raw source HTML, initial loading may take a few seconds.
 
 ## Static GitHub Pages deployment
 
@@ -223,9 +239,9 @@ Ranking metrics are `kills_per_hour`, `expected_coins_per_hour`, `expected_item_
 
 The standalone model in `src/mobs.rs` stores combat stats, attack intervals in milliseconds, explicit non-attacking status, faction XP, aggression, weapon restrictions, debuffs, zone links, and location-specific drop profiles. Drop profiles retain solo coin ranges, displayed drop percentages, maximum quantities, published map-spawn counts, and ordered independent rolls. Repeated rolls must not be deduplicated. The grinding model combines the spawn count with the confirmed 30-second regular-mob respawn; no boss flags are inferred.
 
-Raw page HTML, labeled facts, tables, and original links (including calculator fragments) are retained to allow later parsing without another crawl. This deliberately makes the mob snapshot large (about 85.5 MB for the initial 457-record collection). Raw snapshots could later move to a separate compressed archive; do not use their size as the expected size of a normalized gameplay database.
+Raw page HTML, labeled facts, tables, and original links (including calculator fragments) are retained to allow later parsing without another crawl. This deliberately makes the current 467-mob snapshot about 83 MiB. Raw snapshots could later move to a separate compressed archive; do not use their size as the expected size of the normalized browser or SQLite datasets.
 
-JSON remains the archival interchange format. The derived SQLite database provides indexed relational tables for mobs, locations, drop profiles, rolls, items, skills, and price observations while retaining the JSON snapshots for provenance and re-import. Combat and economy calculations are not implemented yet.
+JSON remains the archival interchange format. The derived SQLite database provides indexed relational tables for mobs, locations, drop profiles, rolls, items, skills, and price observations while retaining the JSON snapshots for provenance and re-import. The native CLI and browser application use the shared Rust calculation engine for build inspection, encounter estimates, and grinding comparisons.
 
 ## Bulk collection
 
@@ -243,7 +259,7 @@ Successful fetching does not imply every game mechanic is typed or verified. Ite
 
 `normalize-data` upgrades the saved item, optional item-audit, and skill snapshots offline using the current parsers. Each output is atomically replaced (the group is not a multi-file transaction). Run it without concurrent collection commands. Recognized item lines move into typed fields; skill descriptions remain intact alongside derived `components`. Repeated normalization does not duplicate components. It writes current coverage to `data/normalization-report.json`; existing scrape reports remain historical reports of the original fetch.
 
-The 3,162-item snapshot includes the published item description and artwork URL for every item. Typed item data includes designated implant slots, flat damage bonuses (separate from weapon damage ranges), cast-time reduction, health/energy regeneration and maxima, Ascension, and guild requirements. Skill components cover direct amounts/ranges, periodic resource changes, timed stat modifiers, threat multipliers, teleport, and pet/morph markers. Range endpoints retain the source values without assuming an inclusive maximum. Modifier values retain DB units; normalization does not establish scaling, stacking, or target semantics.
+The current 3,203-item snapshot includes the published item description and artwork URL for every item. Typed item data includes designated implant slots, flat damage bonuses (separate from weapon damage ranges), cast-time reduction, health/energy regeneration and maxima, Ascension, and guild requirements. Skill components cover direct amounts/ranges, periodic resource changes, timed stat modifiers, threat multipliers, teleport, and pet/morph markers. Range endpoints retain the source values without assuming an inclusive maximum. Modifier values retain DB units; normalization does not establish scaling, stacking, or target semantics.
 
 The current normalized snapshots retain fishing-related item lines and one energy-transfer skill description as untyped data. Unknown effect fragments become explicit `Unknown` components rather than being silently discarded. Review `data/normalization-report.json` before using these records in damage calculations.
 
