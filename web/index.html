@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en" data-runtime="server">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#1e1e2e">
+  <meta name="description" content="Explore Fantasy Online 2 data, inspect builds, and model encounters and grinding routes.">
+  <title>Forge of Numbers · FO2 Calculator</title>
+  <script>
+    (function () {
+      const colors = { latte: "#eff1f5", frappe: "#303446", macchiato: "#24273a", mocha: "#1e1e2e" };
+      let theme = "mocha";
+      try {
+        const saved = localStorage.getItem("fo2-dps:theme");
+        if (Object.hasOwn(colors, saved)) theme = saved;
+      } catch { /* Storage can be disabled. */ }
+      document.documentElement.dataset.theme = theme;
+      document.querySelector('meta[name="theme-color"]').content = colors[theme];
+    }());
+  </script>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="brand-wrap">
+      <div class="brand-mark" aria-hidden="true"><span>F</span></div>
+      <div>
+        <p class="eyebrow">Combat intelligence</p>
+        <a class="brand" href="#overview" data-tab-link="overview">Forge of Numbers</a>
+      </div>
+    </div>
+    <div class="header-actions">
+      <label class="theme-picker" for="theme-select"><span></span>Color scheme</span><select id="theme-select" aria-label="Catppuccin color scheme"><option value="latte">Latte</option><option value="frappe">Frappé</option><option value="macchiato">Macchiato</option><option value="mocha">Mocha</option></select></label>
+      <div class="api-status" id="api-status" role="status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span class="status-text">Checking archive…</span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tab-bar" aria-label="Primary navigation">
+    <div class="tab-list" role="tablist" aria-label="Workbench sections">
+      <button class="nav-tab" id="tab-overview" role="tab" aria-selected="true" aria-controls="panel-overview" data-tab="overview"><span class="tab-icon" aria-hidden="true">◈</span>Overview</button>
+      <button class="nav-tab" id="tab-explorer" role="tab" aria-selected="false" aria-controls="panel-explorer" tabindex="-1" data-tab="explorer"><span class="tab-icon" aria-hidden="true">⌕</span>Data Explorer</button>
+      <button class="nav-tab" id="tab-build" role="tab" aria-selected="false" aria-controls="panel-build" tabindex="-1" data-tab="build"><span class="tab-icon" aria-hidden="true">⚒</span>Build Lab</button>
+      <button class="nav-tab" id="tab-encounter" role="tab" aria-selected="false" aria-controls="panel-encounter" tabindex="-1" data-tab="encounter"><span class="tab-icon" aria-hidden="true">⚔</span>Encounter</button>
+      <button class="nav-tab" id="tab-grinding" role="tab" aria-selected="false" aria-controls="panel-grinding" tabindex="-1" data-tab="grinding"><span class="tab-icon" aria-hidden="true">✦</span>Grinding</button>
+    </div>
+  </nav>
+
+  <main id="main-content" class="main-shell">
+    <section class="tab-panel" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" data-panel="overview">
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="kicker"><span></span>Analyst’s workbench</p>
+          <h1></h1>Turn the archive into<br><em>battle plans.</em></h1>
+          <p class="hero-text">Explore the compendium, validate a character build, and model combat or farming scenarios with every assumption in view.</p>
+          <div class="hero-actions">
+            <button class="button primary" type="button" data-go="build">Open Build Lab <span aria-hidden="true">→</span></button>
+            <button class="button secondary" type="button" data-go="explorer">Browse archive</button>
+          </div>
+        </div>
+        <div class="sigil" aria-hidden="true"><div class="sigil-ring"><span>FO</span></div><div class="sigil-line"></div></div>
+      </div>
+
+      <section aria-labelledby="archive-heading" class="section-block">
+        <div class="section-heading">
+          <div><p class="eyebrow">Live data</p><h2 id="archive-heading">Archive at a glance</h2></div>
+          <button class="icon-button" type="button" id="refresh-summary" aria-label="Refresh archive summary" title="Refresh summary">↻</button>
+        </div>
+        <div id="summary-state" class="summary-grid" aria-live="polite">
+          <div class="stat-card skeleton-card"></div><div class="stat-card skeleton-card"></div><div class="stat-card skeleton-card"></div><div class="stat-card skeleton-card"></div>
+        </div>
+      </section>
+
+      <section aria-labelledby="workflow-heading" class="section-block">
+        <div class="section-heading"><div><p class="eyebrow">Suggested path</p><h2 id="workflow-heading">From records to results</h2></div></div>
+        <div class="workflow-grid">
+          <button class="workflow-card" type="button" data-go="explorer"><span class="step">01</span><span><strong>Find your loadout</strong><small>Search items, sets, skills, and enemies.</small></span><span aria-hidden="true">↗</span></button>
+          <button class="workflow-card" type="button" data-go="build"><span class="step">02</span><span><strong>Validate the build</strong><small>Check attributes, equipment, and effects.</small></span><span aria-hidden="true">↗</span></button>
+          <button class="workflow-card" type="button" data-go="encounter"><span class="step">03</span><span><strong>Test the fight</strong><small>Estimate survival, damage, and time to kill.</small></span><span aria-hidden="true">↗</span></button>
+        </div>
+      </section>
+    </section>
+
+    <section class="tab-panel" id="panel-explorer" role="tabpanel" aria-labelledby="tab-explorer" data-panel="explorer" hidden>
+      <header class="page-heading">
+        <div><p class="eyebrow">Compendium</p><h1>Data Explorer</h1><p>Search the archive and inspect the source data behind every calculation.</p></div>
+        <div class="record-count" id="explorer-count" aria-live="polite">— records</div>
+      </header>
+      <div class="toolbar card">
+        <div class="field search-field"><label for="entity-search">Search records</label><div class="input-with-icon"><span aria-hidden="true">⌕</span><input id="entity-search" type="search" placeholder="Name, slug, or keyword…" autocomplete="off"></div></div>
+        <div class="field"><label for="entity-type">Entity type</label><select id="entity-type"><option value="items">Items</option><option value="mobs">Mobs</option><option value="skills">Skills</option><option value="item-sets">Item sets</option></select></div>
+        <div class="field" id="item-type-field"><label for="item-type">Item type</label><input id="item-type" type="text" list="item-types" placeholder="All types" autocomplete="off"><datalist id="item-types"></datalist></div>
+      </div>
+      <div id="explorer-error" class="notice error" role="alert" hidden></div>
+      <div id="entity-list" class="entity-grid" aria-live="polite" aria-busy="false"></div>
+      <div class="load-more-wrap"><button class="button secondary" type="button" id="load-more" hidden>Load more records</button></div>
+    </section>
+
+    <section class="tab-panel" id="panel-build" role="tabpanel" aria-labelledby="tab-build" data-panel="build" hidden>
+      <header class="page-heading"><div><p class="eyebrow">Character workshop</p><h1>Build Lab</h1><p>Edit the shared character build used by every model, then inspect it for invalid choices.</p></div><span class="shared-badge">Shared workspace</span></header>
+      <div class="lab-layout">
+        <form class="card editor-card" id="build-form" novalidate>
+          <div class="card-heading"><div><h2>Character</h2><p>Configure progression, attributes, and loadout</p></div><button class="text-button" type="button" data-reset="build">Reset example</button></div>
+          <div class="guided-grid two-columns">
+            <div class="field"><label for="build-level">Level</label><input id="build-level" type="number" min="1" step="1"></div>
+            <div class="field"><label for="build-progression">Progression</label><select id="build-progression"><option value="spawn">Spawn</option><option value="rebirth">Rebirth</option><option value="ascension">Ascension</option></select></div>
+          </div>
+          <div class="point-budget" id="point-budget" aria-live="polite">
+            <div><span>Available</span><strong id="points-budget">2</strong></div>
+            <div><span>Assigned</span><strong id="points-spent">0</strong></div>
+            <div class="unassigned"><span>Unassigned</span><strong id="points-unassigned">2</strong></div>
+          </div>
+          <fieldset class="control-group"><legend>Attributes</legend><div class="guided-grid four-columns">
+            <div class="attribute-control"><div><span>Stamina</span><strong id="build-total-stamina">20</strong></div><label for="build-stamina">Allocated points</label><input id="build-stamina" type="number" min="0" step="1"></div>
+            <div class="attribute-control"><div><span>Strength</span><strong id="build-total-strength">20</strong></div><label for="build-strength">Allocated points</label><input id="build-strength" type="number" min="0" step="1"></div>
+            <div class="attribute-control"><div><span>Agility</span><strong id="build-total-agility">20</strong></div><label for="build-agility">Allocated points</label><input id="build-agility" type="number" min="0" step="1"></div>
+            <div class="attribute-control"><div><span>Intellect</span><strong id="build-total-intellect">20</strong></div><label for="build-intellect">Allocated points</label><input id="build-intellect" type="number" min="0" step="1"></div>
+          </div></fieldset>
+          <section class="loadout-editor" aria-labelledby="equipment-heading">
+            <div class="collection-heading"><div><h3 id="equipment-heading">Character window</h3><p>Choose a slot to search compatible items</p></div></div>
+            <div class="character-loadout">
+              <div class="loadout-tabs" role="tablist" aria-label="Loadout category">
+                <button type="button" role="tab" aria-selected="true" data-loadout-tab="equipment">Equipment <span id="equipment-count">0/16</span></button>
+                <button type="button" role="tab" aria-selected="false" data-loadout-tab="outfit">Outfit <span id="outfit-count">0/10</span></button>
+                <button type="button" role="tab" aria-selected="false" data-loadout-tab="implants" id="implants-tab" hidden>Implants <span id="implant-count">0/6</span></button>
+              </div>
+              <div id="loadout-equipment" class="slot-board equipment-board" data-loadout-panel="equipment"></div>
+              <div id="loadout-outfit" class="slot-board outfit-board" data-loadout-panel="outfit" hidden></div>
+              <div id="loadout-implants" class="slot-board implants-board" data-loadout-panel="implants" hidden></div>
+            </div>
+          </section>
+          <section class="collection-editor active-set-editor" aria-label="Active set">
+            <div id="active-set-summary" class="active-set-summary"><p class="active-set-empty">Inspecting equipped set pieces…</p></div>
+          </section>
+          <section class="collection-editor" aria-labelledby="effects-heading">
+            <div class="collection-heading effect-collection-heading"><div><h3 id="effects-heading">Buffs, morphs, and pet</h3></div></div>
+            <div class="active-effect-group"><div class="effect-group-heading"><strong>Active buffs / morphs</strong><span id="buff-count">0/5 active</span></div><div id="buff-slots" class="slot-board effect-slot-board"></div></div>
+            <div class="active-effect-group"><div class="effect-group-heading"><strong></strong>Active pet</strong><span id="pet-availability">Unlocks at Rebirth</span></div><div id="pet-slot" class="slot-board effect-slot-board pet-slot-board"></div></div>
+          </section>
+          <details class="advanced-editor"><summary>Advanced JSON / save format</summary><div class="advanced-actions"><button class="button mini secondary" id="download-build" type="button">Download build</button><label class="button mini secondary file-button" for="import-build">Import build<input id="import-build" type="file" accept="application/json,.json"></label></div><div class="field code-field"><label for="build-json">Build JSON</label><textarea id="build-json" spellcheck="false" aria-describedby="build-hint"></textarea><small id="build-hint">Edits here sync back to the guided form when the field loses focus.</small></div></details>
+          <div class="live-validation"><span class="live-dot" aria-hidden="true"></span><span id="build-live-status" role="status">Waiting for validation…</span><span class="json-validity" id="build-validity" aria-live="polite"></span></div>
+        </form>
+        <div class="result-column"><div id="build-result" class="result-placeholder"><span aria-hidden="true">⚒</span><h2>Awaiting inspection</h2><p>Submit the example or tailor it to your character. Validation and aggregate stats will appear here.</p></div></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-encounter" role="tabpanel" aria-labelledby="tab-encounter" data-panel="encounter" hidden>
+      <header class="page-heading"><div><p class="eyebrow">Combat simulator</p><h1>Encounter</h1><p>Model a single target using your shared build and explicit combat assumptions.</p></div></header>
+      <div class="lab-layout">
+        <form class="card editor-card" id="encounter-form" novalidate>
+          <div class="card-heading"><div><h2>Combat scenario</h2><p>Build-derived combat values with explicit overrides</p></div><button class="text-button" type="button" data-reset="encounter">Reset</button></div>
+          <div class="field"><label for="encounter-mob">Mob slug</label><input id="encounter-mob" required value="angry-skele-8" list="mob-slugs" placeholder="e.g. angry-skele-8" autocomplete="off"></div>
+          <div id="scenario-build-sync" class="scenario-build-sync" aria-live="polite">Waiting for Build Lab inspection…</div>
+          <div class="guided-grid two-columns scenario-controls">
+            <div class="field"><label for="enc-hit">Expected noncritical hit <span class="input-source" id="enc-hit-source">Build Lab</span></label><input id="enc-hit" type="number" min="0.01" step="any"></div>
+            <div class="field"><label for="enc-speed">Attack interval (seconds) <span class="input-source" id="enc-speed-source">Build Lab</span></label><input id="enc-speed" type="number" min="0.01" step="any"></div>
+            <div class="field"><label for="enc-crit">Crit (%) <span class="input-source" id="enc-crit-source">Required assumption</span></label><input id="enc-crit" type="number" min="0" step="any"></div>
+            <div class="field"><label for="enc-dodge">Dodge (%) <span class="input-source" id="enc-dodge-source">Required assumption</span></label><input id="enc-dodge" type="number" min="0" max="100" step="any"></div>
+            <div class="field"><label for="enc-health">Maximum health <span class="input-source" id="enc-health-source">Build Lab</span></label><input id="enc-health" type="number" min="0.01" step="any"></div>
+            <div class="field"><label for="enc-mob-hit">Post-mitigation mob hit override <span class="input-source">Optional</span></label><input id="enc-mob-hit" type="number" min="0" step="any" placeholder="Derived from mob damage and Armor"></div>
+            <div class="field"><label for="enc-order">Simultaneous attacks</label><select id="enc-order"><option value="player_first">Player first</option><option value="mob_first">Mob first</option></select></div>
+            <label class="assumption-toggle" for="enc-assume-survival"><input id="enc-assume-survival" type="checkbox"><span><strong>Assume player survives</strong><small>Explicit fallback that skips all incoming damage</small></span></label>
+            <div class="field"><label for="enc-energy">Initial energy (optional) <span class="input-source">Current resource</span></label><input id="enc-energy" type="number" min="0" step="any" placeholder="Not modeled"></div>
+            <div class="field"><label for="enc-energy-rate">Net energy cost / second</label><input id="enc-energy-rate" type="number" step="any" placeholder="0"></div>
+          </div>
+          <details class="advanced-editor"><summary>Advanced JSON / save format</summary><div class="field code-field"><label for="encounter-json">Encounter assumptions JSON</label><textarea id="encounter-json" spellcheck="false"></textarea></div></details>
+          <div class="form-actions"><span class="json-validity" id="encounter-validity" aria-live="polite"></span><button class="button primary" type="submit">Run encounter <span aria-hidden="true">⚔</span></button></div>
+        </form>
+        <div class="result-column"><div id="encounter-result" class="result-placeholder"><span aria-hidden="true">⚔</span><h2>No battle modeled</h2><p>Enter a mob slug and tune the assumptions to forecast the encounter.</p></div></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-grinding" role="tabpanel" aria-labelledby="tab-grinding" data-panel="grinding" hidden>
+      <header class="page-heading"><div><p class="eyebrow">Route planner</p><h1>Grinding</h1><p>Find the strongest farming targets for the current build, then inspect individual routes.</p></div></header>
+      <div class="mode-switch" role="tablist" aria-label="Grinding mode"><button type="button" role="tab" aria-selected="true" data-grind-mode="leaderboard">Top mobs</button><button type="button" role="tab" aria-selected="false" data-grind-mode="single">Single target</button><button type="button" role="tab" aria-selected="false" data-grind-mode="compare">Advanced comparison</button></div>
+      <div class="lab-layout leaderboard-layout" id="grind-layout">
+        <form class="card editor-card" id="grind-form" novalidate>
+          <div id="grind-leaderboard-fields">
+            <div class="card-heading"><div><h2>Top 50 mobs by faction</h2><p>Choose a faction, then rank only its mobs by faction XP or gold per hour</p></div></div>
+            <div class="guided-grid two-columns scenario-controls">
+              <div class="field"><label for="grind-leaderboard-metric">Order by</label><select id="grind-leaderboard-metric"><option value="expected_net_value_per_hour">Gold per hour</option><option value="faction_xp_per_hour">Faction XP per hour</option></select></div>
+              <div class="field"><label for="grind-leaderboard-faction">Faction</label><select id="grind-leaderboard-faction"><option value="">All factions (gold ranking only)</option></select></div>
+              <div class="field"><label>Item valuation</label><div class="locked-field">Shop value only</div></div>
+              <label class="assumption-toggle" for="grind-leaderboard-spawn-cap"><input id="grind-leaderboard-spawn-cap" type="checkbox"><span><strong>Apply spawn cap</strong><small>Limits</small> positive-duration routes to published map spawns × 120 kills/hour; zero-second one-shots use this bound automatically.</small></span></label>
+              <div class="field"><label for="grind-leaderboard-max-clicks">Maximum loot clicks / hour</label><input id="grind-leaderboard-max-clicks" type="number" min="0" step="any" placeholder="No limit"></div>
+              <div class="field"><label for="grind-leaderboard-travel">Travel / kill (seconds)</label><input id="grind-leaderboard-travel" type="number" min="0" step="any" value="0"></div>
+              <div class="field"><label for="grind-leaderboard-recovery">Recovery / kill (seconds)</label><input id="grind-leaderboard-recovery" type="number" min="0" step="any" value="0"></div>
+              <div class="field"><label for="grind-leaderboard-respawn">Effective respawn wait / kill (seconds)</label><input id="grind-leaderboard-respawn" type="number" min="0" step="any" value="0"></div>
+            </div>
+            <div class="scenario-build-sync"><strong>MVP assumptions:</strong> the player always survives, each successful roll drops one item requiring one loot click, and no consumables are spent. Opening one-shots reset attack timing and, with zero route overhead, use published map spawns × 120 kills/hour. Resource targets and boss candidates are excluded. Gold/hour is the known subtotal; unknown drop values contribute zero.</div>
+          </div>
+          <div id="grind-single-fields" hidden>
+            <div class="card-heading"><div><h2>Farming route</h2><p>Encounter settings are shared from the Encounter tab</p></div><button class="text-button" type="button" data-reset="grind">Reset</button></div>
+            <div class="field"><label for="grind-mob">Mob slug</label><input id="grind-mob" required value="angry-skele-8" list="mob-slugs" placeholder="e.g. angry-skele-8" autocomplete="off"></div>
+            <div class="guided-grid two-columns scenario-controls">
+              <div class="field"><label for="grind-profile">Drop profile index</label><input id="grind-profile" type="number" min="0" step="1"></div>
+              <div class="field"><label for="grind-travel">Travel / kill (seconds)</label><input id="grind-travel" type="number" min="0" step="any"></div>
+              <div class="field"><label for="grind-recovery">Recovery / kill (seconds)</label><input id="grind-recovery" type="number" min="0" step="any"></div>
+              <div class="field"><label for="grind-respawn">Respawn wait / kill (seconds)</label><input id="grind-respawn" type="number" min="0" step="any"></div>
+              <div class="field"><label for="grind-price">Item valuation</label><select id="grind-price"><option value="shop">Shop value</option><option value="shop_or_recently_sold">Shop or recently sold</option></select></div>
+              <div class="field"><label for="grind-threshold">Recently sold threshold (× shop)</label><input id="grind-threshold" type="number" min="1" step="any" value="3"></div>
+            </div>
+            <section class="collection-editor" aria-labelledby="consumables-heading"><div class="collection-heading"><div><h3 id="consumables-heading">Consumables</h3><p>Expected usage and unit cost</p></div><button class="button mini secondary" id="add-consumable" type="button">+ Add cost</button></div><div id="consumable-rows" class="editor-rows"></div></section>
+            <details class="advanced-editor"><summary>Advanced JSON / save format</summary><div class="field code-field"><label for="grind-json">Assumptions JSON</label><textarea id="grind-json" spellcheck="false"></textarea></div></details>
+          </div>
+          <div id="grind-compare-fields" hidden>
+            <div class="card-heading compact"><div><h2>Route comparison</h2><p>Ranking metric and target assumptions</p></div><button class="text-button" type="button" data-reset="compare">Reset</button></div>
+            <div class="field code-field"><label for="compare-json">Comparison JSON</label><textarea id="compare-json" spellcheck="false"></textarea></div>
+          </div>
+          <div class="form-actions"><span class="json-validity" id="grind-validity" aria-live="polite"></span><button class="button primary" type="submit"><span id="grind-submit-label">Rank top 50</span> <span aria-hidden="true">→</span></button></div>
+        </form>
+        <div class="result-column"><div id="grind-result" class="result-placeholder"><span aria-hidden="true">✦</span><h2>Ready to rank mobs</h2><p>Use the current Build Lab character to find the top 50 targets by gold or faction XP per hour.</p></div></div>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="mob-slugs"></datalist>
+  <datalist id="item-slugs"></datalist>
+
+  <dialog id="item-picker" aria-labelledby="item-picker-title">
+    <div class="dialog-shell picker-shell">
+      <header class="dialog-header"><div><p class="eyebrow" id="picker-kind">Choose an item</p><h2 id="item-picker-title">Equipment slot</h2></div><button class="close-button" type="button" data-close-picker aria-label="Close picker">×</button></header>
+      <div class="picker-search"><label for="picker-search" id="picker-search-label">Search this slot</label><input id="picker-search" type="search" placeholder="Search compatible items…" autocomplete="off"><span id="picker-count" aria-live="polite"></span></div>
+      <div id="picker-results" class="picker-results" aria-live="polite"></div>
+    </div>
+  </dialog>
+
+  <dialog id="skill-picker" aria-labelledby="skill-picker-title">
+    <div class="dialog-shell picker-shell">
+      <header class="dialog-header"><div><p class="eyebrow" id="skill-picker-kind">Choose a buff</p><h2 id="skill-picker-title">Active buff</h2></div><button class="close-button" type="button" data-close-skill-picker aria-label="Close skill picker">×</button></header>
+      <div class="picker-search"><label for="skill-picker-search" id="skill-picker-search-label">Search buff skills</label><input id="skill-picker-search" type="search" placeholder="Search buff skills by name or rank…" autocomplete="off"><span id="skill-picker-count" aria-live="polite"></span></div>
+      <div id="skill-picker-results" class="picker-results" aria-live="polite"></div>
+    </div>
+  </dialog>
+
+  <dialog id="detail-dialog" aria-labelledby="detail-title">
+    <div class="dialog-shell">
+      <header class="dialog-header"><div><p class="eyebrow" id="detail-kind">Archive record</p><h2 id="detail-title">Record detail</h2></div><button class="close-button" type="button" data-close-dialog aria-label="Close details">×</button></header>
+      <div id="detail-content" class="dialog-content"></div>
+    </div>
+  </dialog>
+
+  <div class="game-tooltip" id="game-tooltip" role="tooltip" popover="manual"></div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <footer><span>Forge of Numbers</span><span>Transparent models. Explicit assumptions.</span></footer>
+</body>
+</html>

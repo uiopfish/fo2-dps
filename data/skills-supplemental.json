@@ -1,0 +1,1407 @@
+[
+  {
+    "name": "Pet Anglerfish",
+    "slug": "pet-anglerfish-egg-3000",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Gain 300-400 HP every 5 seconds and 400 Attack Power for 30 minutes.",
+        "components": [
+          {
+            "Periodic": {
+              "resource": "Health",
+              "direction": "Gain",
+              "amount": {
+                "Range": {
+                  "min": 300,
+                  "max": 400
+                }
+              },
+              "interval_seconds": 5
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 400
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Black Chicken",
+    "slug": "pet-black-chicken-egg-2467",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "70"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 70,
+    "attribute_requirements": [
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Crosses roads for loot, not questions. Gain 20 Intellect. Effect duration: 30 minutes per activation.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Intellect",
+              "value": 20
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Brown Chicken",
+    "slug": "pet-brown-chicken-egg-2465",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "70"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 70,
+    "attribute_requirements": [
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Crosses roads for loot, not questions. Gain 20 Agility. Effect duration: 30 minutes per activation.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Agility",
+              "value": 20
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Demowing",
+    "slug": "pet-demowing-egg-3236",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "100"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 100,
+    "attribute_requirements": [
+      {
+        "attribute": "Agility",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Intellect",
+        "amount": 600,
+        "value": "600"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Regen 350 Energy every 5 seconds and gain 10 Crit for 30 minutes.",
+        "components": [
+          {
+            "Periodic": {
+              "resource": "Energy",
+              "direction": "Gain",
+              "amount": {
+                "Fixed": 350
+              },
+              "interval_seconds": 5
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 10
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Goldfish",
+    "slug": "pet-goldfish-egg-3002",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Intellect",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Increases Attack Speed by 0.25 and regen 500 Energy every 7 seconds for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack speed",
+              "value": -250
+            }
+          },
+          {
+            "Periodic": {
+              "resource": "Energy",
+              "direction": "Gain",
+              "amount": {
+                "Fixed": 500
+              },
+              "interval_seconds": 7
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Hot Potato",
+    "slug": "pet-hot-potato-egg-3234",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "100"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 100,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Agility",
+        "amount": 600,
+        "value": "600"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Gain 1,000 Attack Power and 10 Crit for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 1000
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 10
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Rat",
+    "slug": "pet-rat-egg-2842",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "90"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 90,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Squeak squeak!!! Increases Attack Speed by 0.25 and gain 550 Attack Power for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack speed",
+              "value": -250
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 550
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Seahorse",
+    "slug": "pet-seahorse-egg-3004",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Agility",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Increases Attack Speed by 0.3, gain 500 Attack Power and 5% Crit for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack speed",
+              "value": -300
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 500
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 5
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Tortoise",
+    "slug": "pet-tortoise-egg-3006",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Stamina",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Gain 10,000 Armor and regen 300-400 HP every 5 seconds for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Armor",
+              "value": 10000
+            }
+          },
+          {
+            "Periodic": {
+              "resource": "Health",
+              "direction": "Gain",
+              "amount": {
+                "Range": {
+                  "min": 300,
+                  "max": 400
+                }
+              },
+              "interval_seconds": 5
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Toxic Slime",
+    "slug": "pet-toxic-slime-egg-2844",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "90"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 90,
+    "attribute_requirements": [
+      {
+        "attribute": "Intellect",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Emotional support hazard. Gain 8,000 Armor and regen 300 Energy every 6 seconds for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Armor",
+              "value": 8000
+            }
+          },
+          {
+            "Periodic": {
+              "resource": "Energy",
+              "direction": "Gain",
+              "amount": {
+                "Fixed": 300
+              },
+              "interval_seconds": 6
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet White Chicken",
+    "slug": "pet-white-chicken-egg-2464",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "70"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 70,
+    "attribute_requirements": [
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Crosses roads for loot, not questions. Gain 20 Stamina. Effect duration: 30 minutes per activation.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Stamina",
+              "value": 20
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Yellow Chicken",
+    "slug": "pet-yellow-chicken-egg-2466",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "70"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 70,
+    "attribute_requirements": [
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Crosses roads for loot, not questions. Gain 20 Strength. Effect duration: 30 minutes per activation.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Strength",
+              "value": 20
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Crypt Zombie",
+    "slug": "pet-zombie-egg-2846",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "90"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 90,
+    "attribute_requirements": [
+      {
+        "attribute": "Agility",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Your ride or die... Emphasis on die! Heal for 100-600 HP every 5 seconds and gain 6 Crit for 30 minutes.",
+        "components": [
+          {
+            "Periodic": {
+              "resource": "Health",
+              "direction": "Gain",
+              "amount": {
+                "Range": {
+                  "min": 100,
+                  "max": 600
+                }
+              },
+              "interval_seconds": 5
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 6
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Anglerfish",
+    "slug": "uber-pet-anglerfish-egg-3001",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "The Uber variant of Pet Anglerfish! Gain 350-500 HP every 5 seconds and 800 Attack Power for 30 minutes.",
+        "components": [
+          {
+            "Periodic": {
+              "resource": "Health",
+              "direction": "Gain",
+              "amount": {
+                "Range": {
+                  "min": 350,
+                  "max": 500
+                }
+              },
+              "interval_seconds": 5
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 800
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Demowing",
+    "slug": "uber-pet-demowing-egg-3237",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "100"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 100,
+    "attribute_requirements": [
+      {
+        "attribute": "Agility",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Intellect",
+        "amount": 600,
+        "value": "600"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Regen 400 Energy every 5 seconds and gain 14 Crit for 30 minutes.",
+        "components": [
+          {
+            "Periodic": {
+              "resource": "Energy",
+              "direction": "Gain",
+              "amount": {
+                "Fixed": 400
+              },
+              "interval_seconds": 5
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 14
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Goldfish",
+    "slug": "uber-pet-goldfish-egg-3003",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Intellect",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "The Uber variant of Pet Goldfish! Increases Attack Speed by 0.3 and regen 550 Energy every 7 seconds for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack speed",
+              "value": -300
+            }
+          },
+          {
+            "Periodic": {
+              "resource": "Energy",
+              "direction": "Gain",
+              "amount": {
+                "Fixed": 550
+              },
+              "interval_seconds": 7
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Hot Potato",
+    "slug": "uber-pet-hot-potato-egg-3235",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "100"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 100,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Agility",
+        "amount": 600,
+        "value": "600"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Gain 1,300 Attack Power and 14 Crit for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 1300
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 14
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Rat",
+    "slug": "uber-pet-rat-egg-2843",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "90"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 90,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Squeak squeak!!! Increases Attack Speed by 0.3 and gain 650 Attack Power for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack speed",
+              "value": -300
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 650
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Seahorse",
+    "slug": "uber-pet-seahorse-egg-3005",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Agility",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "The Uber variant of Pet Seahorse! Increases Attack Speed by 0.35, gain 600 Attack Power and 10% Crit for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack speed",
+              "value": -350
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 600
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 10
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Skele Dwarf",
+    "slug": "uber-pet-skele-egg-1846",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "6"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 6,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 30,
+        "value": "30"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "He may be small, but he's got bone to pick. Gain 40 Attack Power for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 40
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Tortoise",
+    "slug": "uber-pet-tortoise-egg-3007",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "96"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 96,
+    "attribute_requirements": [
+      {
+        "attribute": "Stamina",
+        "amount": 850,
+        "value": "850"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "The Uber variant of Pet Tortoise! Gain 20,000 Armor and regen 350-500 HP every 5 seconds for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Armor",
+              "value": 20000
+            }
+          },
+          {
+            "Periodic": {
+              "resource": "Health",
+              "direction": "Gain",
+              "amount": {
+                "Range": {
+                  "min": 350,
+                  "max": 500
+                }
+              },
+              "interval_seconds": 5
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Toxic Slime",
+    "slug": "uber-pet-toxic-slime-egg-2845",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "90"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 90,
+    "attribute_requirements": [
+      {
+        "attribute": "Intellect",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Emotional support hazard. Gain 10,000 Armor and regen 350 Energy every 6 seconds for 30 minutes.",
+        "components": [
+          {
+            "TimedStatModifier": {
+              "stat": "Armor",
+              "value": 10000
+            }
+          },
+          {
+            "Periodic": {
+              "resource": "Energy",
+              "direction": "Gain",
+              "amount": {
+                "Fixed": 350
+              },
+              "interval_seconds": 6
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pet Crypt Zombie",
+    "slug": "uber-pet-zombie-egg-2847",
+    "rank": 2,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "2"
+      },
+      {
+        "label": "Level requirement",
+        "value": "90"
+      },
+      {
+        "label": "Duration",
+        "value": "30 minutes"
+      }
+    ],
+    "level_requirement": 90,
+    "attribute_requirements": [
+      {
+        "attribute": "Agility",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1800.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Pet effect",
+        "details": "Your ride or die... Emphasis on die! Heal for 100-700 HP every 5 seconds and gain 8 Crit for 30 minutes.",
+        "components": [
+          {
+            "Periodic": {
+              "resource": "Health",
+              "direction": "Gain",
+              "amount": {
+                "Range": {
+                  "min": 100,
+                  "max": 700
+                }
+              },
+              "interval_seconds": 5
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Crit",
+              "value": 8
+            }
+          },
+          "Pet"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,6 @@
+/target
+/dist
+/test-results/*
+/data/*.sqlite
+/data/.fo2.sqlite.*.tmp
+/data/debug-*.html

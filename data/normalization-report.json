@@ -1,0 +1,37 @@
+{
+  "items": {
+    "data/item-audit.json": {
+      "lines_normalized_this_run": 0,
+      "records": 201,
+      "remaining_lines": {}
+    },
+    "data/items.json": {
+      "lines_normalized_this_run": 0,
+      "records": 3203,
+      "remaining_lines": {
+        "Deep Sea": 1,
+        "Fishing Power: +10": 2,
+        "Fishing Power: +30": 1,
+        "Fishing Power: +40": 1,
+        "Fishing Power: +5": 2,
+        "Fishing Region:": 2,
+        "Freshwater": 2,
+        "Frozen": 1,
+        "Infested": 1,
+        "Lava": 1,
+        "Line Strength: +10": 2,
+        "Line Strength: +20": 2,
+        "Line Strength: +5": 1,
+        "Line Strength: +70": 1,
+        "Ocean": 2
+      }
+    }
+  },
+  "skills": {
+    "components": 714,
+    "records": 344,
+    "unknown_effects": {
+      "Energy transfer: Transfers 1,000 energy.": 1
+    }
+  }
+}

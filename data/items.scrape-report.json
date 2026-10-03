@@ -1,0 +1,24 @@
+{
+  "entity": "items",
+  "discovered": 3203,
+  "resumed": 0,
+  "scraped": 3203,
+  "failures": [],
+  "unparsed_item_tooltip_lines": {
+    "Deep Sea": 1,
+    "Fishing Power: +10": 2,
+    "Fishing Power: +30": 1,
+    "Fishing Power: +40": 1,
+    "Fishing Power: +5": 2,
+    "Fishing Region:": 2,
+    "Freshwater": 2,
+    "Frozen": 1,
+    "Infested": 1,
+    "Lava": 1,
+    "Line Strength: +10": 2,
+    "Line Strength: +20": 2,
+    "Line Strength: +5": 1,
+    "Line Strength: +70": 1,
+    "Ocean": 2
+  }
+}
