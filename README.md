@@ -88,7 +88,7 @@ cargo run -- serve
 
 ## Static GitHub Pages deployment
 
-The same API contracts and Rust calculations can run entirely in the browser through WebAssembly. `build-web-bundle` projects the authoritative snapshots into `web/data/app-data.v1.json`, removing archival HTML while preserving calculation and explorer fields. `scripts/build-pages.sh` assembles `dist/`, compiles the browser-safe Rust library, and generates the JavaScript WebAssembly bindings. The resulting site makes no `/api` requests and needs no server, billing account, database, or paid service.
+The same API contracts and Rust calculations can run entirely in the browser through WebAssembly. `build-web-bundle` projects the authoritative snapshots into `web/data/app-data.v1.json`, removing archival HTML, raw tables, duplicate cells, and scrape-only fallback structures while preserving calculation and explorer fields. The current compact bundle is about 6.1 MiB for all 3,203 items, 21 sets, 367 skills, and 467 mobs—about 93% smaller than the raw mob archive alone. `scripts/build-pages.sh` assembles `dist/`, compiles the browser-safe Rust library, and generates the JavaScript WebAssembly bindings. The resulting site makes no `/api` requests and needs no server, billing account, database, or paid service.
 
 After a successful scrape, refresh and validate the deployment data with:
 
@@ -239,7 +239,7 @@ Ranking metrics are `kills_per_hour`, `expected_coins_per_hour`, `expected_item_
 
 The standalone model in `src/mobs.rs` stores combat stats, attack intervals in milliseconds, explicit non-attacking status, faction XP, aggression, weapon restrictions, debuffs, zone links, and location-specific drop profiles. Drop profiles retain solo coin ranges, displayed drop percentages, maximum quantities, published map-spawn counts, and ordered independent rolls. Repeated rolls must not be deduplicated. The grinding model combines the spawn count with the confirmed 30-second regular-mob respawn; no boss flags are inferred.
 
-Raw page HTML, labeled facts, tables, and original links (including calculator fragments) are retained to allow later parsing without another crawl. This deliberately makes the current 467-mob snapshot about 83 MiB. Raw snapshots could later move to a separate compressed archive; do not use their size as the expected size of the normalized browser or SQLite datasets.
+Raw page HTML, labeled facts, tables, and original links (including calculator fragments) are retained in the source archive to allow later parsing without another crawl. This deliberately makes the current 467-mob `data/mobs.json` snapshot about 83 MiB, but that file is never copied into `dist/` or downloaded by Pages visitors. The deployed site uses the combined 6.1 MiB compact bundle instead. Raw snapshots could later move to a separate compressed archive; do not use their size as the expected size of the normalized browser or SQLite datasets.
 
 JSON remains the archival interchange format. The derived SQLite database provides indexed relational tables for mobs, locations, drop profiles, rolls, items, skills, and price observations while retaining the JSON snapshots for provenance and re-import. The native CLI and browser application use the shared Rust calculation engine for build inspection, encounter estimates, and grinding comparisons.
 
