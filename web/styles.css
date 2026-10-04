@@ -428,10 +428,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--gold); box-shado
 .equipment-board .slot-ring.slot-index-1 { grid-column: 6; grid-row: 1; }
 .equipment-board .slot-trinket.slot-index-0 { grid-column: 5; grid-row: 2; }
 .equipment-board .slot-trinket.slot-index-1 { grid-column: 6; grid-row: 2; }
-.equipment-board .slot-guild { grid-column: 5; grid-row: 3; }
-.equipment-board .slot-faction { grid-column: 6; grid-row: 3; }
-.equipment-board .slot-relic { grid-column: 5; grid-row: 4; }
-.equipment-board .slot-mount { grid-column: 6; grid-row: 4; }
+.equipment-board .slot-relic { grid-column: 5; grid-row: 3; }
+.equipment-board .slot-mount { grid-column: 6; grid-row: 3; }
+.equipment-board .slot-guild { grid-column: 5; grid-row: 4; }
+.equipment-board .slot-faction { grid-column: 6; grid-row: 4; }
 .outfit-board { grid-template-columns: repeat(5,minmax(0,1fr)); }
 .implants-board { max-width: 360px; margin-inline: auto; padding-block: 12px; }
 .active-effect-group + .active-effect-group { margin-top: 14px; }

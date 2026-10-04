@@ -26,6 +26,13 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   await page.locator("#tab-build").click();
   await expect(page.locator("#build-live-status")).toContainText(/Build valid|Valid/, { timeout: 30000 });
 
+  const relicBox = await page.locator('[data-slot="relic"]').boundingBox();
+  const mountBox = await page.locator('[data-slot="mount"]').boundingBox();
+  const guildBox = await page.locator('[data-slot="guild"]').boundingBox();
+  const factionBox = await page.locator('[data-slot="faction"]').boundingBox();
+  expect(relicBox.y).toBeLessThan(guildBox.y);
+  expect(mountBox.y).toBeLessThan(factionBox.y);
+
   await page.locator('[data-effect-role="buff"][data-effect-index="0"]').click();
   await page.locator("#skill-picker-search").fill("Manhole Manifest");
   await expect(page.locator('[data-pick-skill="manhole-manifest-1st-edition-2848"]')).toBeVisible({ timeout: 30000 });
