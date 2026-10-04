@@ -206,6 +206,7 @@ pub struct GrindingLeaderboardResult {
     pub skipped_mob_count: usize,
     pub excluded_resource_mob_count: usize,
     pub excluded_boss_candidate_count: usize,
+    pub excluded_daily_dungeon_mob_count: usize,
     pub evaluated_route_count: usize,
     pub failed_route_count: usize,
     pub unrankable_route_count: usize,
@@ -298,6 +299,13 @@ fn is_boss_candidate(mob: &Mob) -> bool {
     mob.boss_candidate
 }
 
+fn is_daily_dungeon_target(mob: &Mob) -> bool {
+    mob.locations.iter().any(|location| {
+        location.zone.href.starts_with("/zones/crablands---")
+            || location.zone.href.starts_with("/zones/pirate-shores---")
+    })
+}
+
 fn known_gold_per_hour(estimate: &GrindingEstimate) -> Option<f64> {
     let known_coin_value = estimate.coins.as_ref().map(|coins| coins.expected_per_hour);
     let known_drop_values: Vec<_> = estimate
@@ -371,6 +379,7 @@ pub fn grinding_leaderboard_for_faction(
     let mut unrankable_route_count = 0usize;
     let mut excluded_resource_mob_count = 0usize;
     let mut excluded_boss_candidate_count = 0usize;
+    let mut excluded_daily_dungeon_mob_count = 0usize;
     let mut click_filtered_route_count = 0usize;
 
     for mob in mobs {
@@ -383,6 +392,10 @@ pub fn grinding_leaderboard_for_faction(
         }
         if is_boss_candidate(mob) {
             excluded_boss_candidate_count += 1;
+            continue;
+        }
+        if is_daily_dungeon_target(mob) {
+            excluded_daily_dungeon_mob_count += 1;
             continue;
         }
 
@@ -469,7 +482,7 @@ pub fn grinding_leaderboard_for_faction(
     notes.insert(
         2,
         format!(
-            "Excluded {excluded_resource_mob_count} mining, unlocking, or wood-cutting targets and {excluded_boss_candidate_count} boss candidates. Boss candidates are detected from achievement artwork and remain excluded because their 30-minute respawn is outside the sustained-grinding ranking."
+            "Excluded {excluded_resource_mob_count} mining, unlocking, or wood-cutting targets, {excluded_boss_candidate_count} boss candidates, and {excluded_daily_dungeon_mob_count} Crablands/Pirate Shores daily-dungeon mobs. Daily-instance mobs are not sustainable farming targets; boss candidates remain excluded because their 30-minute respawn is outside the sustained-grinding ranking."
         ),
     );
     notes.insert(
@@ -502,6 +515,7 @@ pub fn grinding_leaderboard_for_faction(
         skipped_mob_count,
         excluded_resource_mob_count,
         excluded_boss_candidate_count,
+        excluded_daily_dungeon_mob_count,
         evaluated_route_count,
         failed_route_count,
         unrankable_route_count,
@@ -798,7 +812,7 @@ mod tests {
     use super::*;
     use crate::db::{ItemRequirements, ItemStats};
     use crate::encounter::{EnergyAssumptions, SimultaneousEventOrder};
-    use crate::mobs::{MobDropRoll, MobLink, MobRange, MobValue};
+    use crate::mobs::{MobDropRoll, MobLink, MobLocation, MobRange, MobValue};
 
     fn value(text: &str, href: Option<&str>) -> MobValue {
         MobValue {
@@ -1174,9 +1188,35 @@ mod tests {
         let mut boss = normal.clone();
         boss.slug = "boss".into();
         boss.boss_candidate = true;
+        let mut daily_dungeon = normal.clone();
+        daily_dungeon.slug = "daily-dungeon".into();
+        daily_dungeon.locations.push(MobLocation {
+            zone: MobLink {
+                href: "/zones/crablands---easy-29".into(),
+                text: "Crablands - Easy".into(),
+                aria_label: None,
+            },
+            map_location_count: Some(1),
+        });
+        let mut pirate_dungeon = normal.clone();
+        pirate_dungeon.slug = "pirate-dungeon".into();
+        pirate_dungeon.locations.push(MobLocation {
+            zone: MobLink {
+                href: "/zones/pirate-shores---hard-19".into(),
+                text: "Pirate Shores - Hard".into(),
+                aria_label: None,
+            },
+            map_location_count: Some(1),
+        });
 
         let included = grinding_leaderboard(
-            &[normal.clone(), resource.clone(), boss.clone()],
+            &[
+                normal.clone(),
+                resource.clone(),
+                boss.clone(),
+                daily_dungeon.clone(),
+                pirate_dungeon.clone(),
+            ],
             &items,
             assumptions(),
             GrindingRankingMetric::KillsPerHour,
@@ -1188,10 +1228,11 @@ mod tests {
         assert_eq!(included.rows[0].mob_slug, "mob");
         assert_eq!(included.excluded_resource_mob_count, 1);
         assert_eq!(included.excluded_boss_candidate_count, 1);
+        assert_eq!(included.excluded_daily_dungeon_mob_count, 2);
         assert_eq!(included.click_filtered_route_count, 0);
 
         let filtered = grinding_leaderboard(
-            &[normal, resource, boss],
+            &[normal, resource, boss, daily_dungeon, pirate_dungeon],
             &items,
             assumptions(),
             GrindingRankingMetric::KillsPerHour,

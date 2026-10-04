@@ -29,13 +29,15 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   await expect(page.locator("#build-live-status")).toContainText(/Build valid|Valid/, { timeout: 30000 });
 
   const normalSlotHeight = (await page.locator('[data-slot="face"]').boundingBox()).height;
-  await page.locator("#yokou-mode").check();
+  await page.locator(".yokou-toggle").click();
+  await expect(page.locator("#yokou-mode")).toBeChecked();
   await expect(page.locator("html")).toHaveAttribute("data-yokou-mode", "true");
   expect((await page.locator('[data-slot="face"]').boundingBox()).height).toBeLessThan(normalSlotHeight);
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.locator("#yokou-mode")).toBeChecked();
   await page.locator("#tab-build").click();
-  await page.locator("#yokou-mode").uncheck();
+  await page.locator(".yokou-toggle").click();
+  await expect(page.locator("#yokou-mode")).not.toBeChecked();
 
   const relicBox = await page.locator('[data-slot="relic"]').boundingBox();
   const mountBox = await page.locator('[data-slot="mount"]').boundingBox();
@@ -114,6 +116,7 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   await expect(page.locator("#grind-result .leaderboard-result, #grind-result .result-error")).toBeVisible({ timeout: 30000 });
   await expect(page.locator("#grind-result .eyebrow")).toContainText("Pure coin drops/hour ranking");
   await expect(page.locator('#grind-result [data-rank-metric="expected_coins_per_hour"]')).toBeVisible();
+  await expect(page.locator("#grind-result .result-header")).toContainText("61 daily-dungeon mobs excluded");
 
   expect(apiRequests).toEqual([]);
   expect(consoleErrors).toEqual([]);

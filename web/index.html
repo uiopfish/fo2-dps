@@ -39,7 +39,7 @@
       </div>
     </div>
     <div class="header-actions">
-      <label class="yokou-toggle" for="yokou-mode"><input id="yokou-mode" type="checkbox"><span>Y</span>okou Mode</span></label>
+      <label class="yokou-toggle" for="yokou-mode"><input id="yokou-mode" type="checkbox"><span class="yokou-switch" aria-hidden="true"></span><span class="yokou-label">Yokou Mode</span></label>
       <label class="theme-picker" for="theme-select"><span></span>Color scheme</span><select id="theme-select" aria-label="Catppuccin color scheme"><option value="latte">Latte</option><option value="frappe">Frappé</option><option value="macchiato">Macchiato</option><option value="mocha">Mocha</option></select></label>
       <div class="api-status" id="api-status" role="status">
         <span class="status-dot" aria-hidden="true"></span>
@@ -189,7 +189,7 @@
               <div class="field"><label for="grind-leaderboard-recovery">Recovery / kill (seconds)</label><input id="grind-leaderboard-recovery" type="number" min="0" step="any" value="0"></div>
               <div class="field"><label for="grind-leaderboard-respawn">Effective respawn wait / kill (seconds)</label><input id="grind-leaderboard-respawn" type="number" min="0" step="any" value="0"></div>
             </div>
-            <div class="scenario-build-sync"><strong>MVP assumptions:</strong> the player always survives, each successful roll drops one item requiring one loot click, and no consumables are spent. Opening one-shots reset attack timing and, with zero route overhead, use published map spawns × 120 kills/hour. Resource targets and boss candidates are excluded. Gold/hour is the known coin-plus-item subtotal; pure coin drops/hour ignores items and uses only published solo coin ranges. Unknown values remain unrankable or contribute zero as appropriate.</div>
+            <div class="scenario-build-sync"><strong>MVP assumptions:</strong> the player always survives, each successful roll drops one item requiring one loot click, and no consumables are spent. Opening one-shots reset attack timing and, with zero route overhead, use published map spawns × 120 kills/hour. Resource targets, boss candidates, and Crablands/Pirate Shores daily-dungeon mobs are excluded. Gold/hour is the known coin-plus-item subtotal; pure coin drops/hour ignores items and uses only published solo coin ranges. Unknown values remain unrankable or contribute zero as appropriate.</div>
           </div>
           <div id="grind-single-fields" hidden>
             <div class="card-heading"><div><h2>Farming route</h2><p>Uses the combat assumptions above</p></div><button class="text-button" type="button" data-reset="grind">Reset</button></div>
