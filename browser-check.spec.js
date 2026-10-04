@@ -26,6 +26,11 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   await page.locator("#tab-build").click();
   await expect(page.locator("#build-live-status")).toContainText(/Build valid|Valid/, { timeout: 30000 });
 
+  await page.locator('[data-effect-role="buff"][data-effect-index="0"]').click();
+  await page.locator("#skill-picker-search").fill("Manhole Manifest");
+  await expect(page.locator('[data-pick-skill="manhole-manifest-1st-edition-2848"]')).toBeVisible({ timeout: 30000 });
+  await page.locator("[data-close-skill-picker]").click();
+
   await page.locator("#build-progression").selectOption("spawn");
   await page.locator("#build-level").fill("1");
   for (const attribute of ["stamina", "strength", "agility", "intellect"]) {

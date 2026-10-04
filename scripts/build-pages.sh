@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+cargo run --release --locked -- build-web-bundle
 cargo run --release --locked -- assemble-pages
 cargo build --release --locked --target wasm32-unknown-unknown --lib
 wasm-bindgen \
