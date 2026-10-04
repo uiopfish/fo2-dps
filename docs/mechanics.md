@@ -274,9 +274,11 @@ Neither item has Attack Power, flat Damage, attributes, or other combat stats in
 
 Together with the exact level-103 Pearlbreaker fixture, these observations establish the basic-attack panel equation:
 
-`panel range = intrinsic/weapon range + floor(Attack Power × attack interval seconds ÷ 14) + flat Damage`
+`panel range = intrinsic/weapon range + floor(Attack Power × base attack interval seconds ÷ 14) + implant Damage`
 
-It reproduces unarmed `floor(AP ÷ 10)`, Toy Sword 8–12, Toy Wand 7–15, and Pearlbreaker’s Glaive 2,184–2,264 exactly. Every integer in the displayed basic-attack range is equally likely with inclusive endpoints, and mobs do not reduce outgoing player damage.
+The base attack interval is the unbuffed interval supplied by the equipped weapon, or 1.40 seconds when unarmed. Active attack-speed buffs change attack frequency but do not change damage per hit. The flat `Damage` stat in the current item snapshot is exclusive to implants.
+
+This reproduces unarmed `floor(AP ÷ 10)`, Toy Sword 8–12, Toy Wand 7–15, and Pearlbreaker’s Glaive 2,184–2,264 exactly. Every integer in the displayed basic-attack range is equally likely with inclusive endpoints, and mobs do not reduce outgoing player damage.
 
 ### Geared level-103 Ascension observation
 

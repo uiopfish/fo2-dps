@@ -29,12 +29,15 @@ pub const OUT_OF_COMBAT_REGEN_TICK_SECONDS: u32 = 2;
 
 pub fn basic_attack_power_damage_contribution(
     attack_power: i64,
-    attack_interval_seconds: f64,
+    base_attack_interval_seconds: f64,
 ) -> Option<i64> {
-    if attack_power < 0 || !attack_interval_seconds.is_finite() || attack_interval_seconds <= 0.0 {
+    if attack_power < 0
+        || !base_attack_interval_seconds.is_finite()
+        || base_attack_interval_seconds <= 0.0
+    {
         return None;
     }
-    let contribution = (attack_power as f64 * attack_interval_seconds / 14.0).floor();
+    let contribution = (attack_power as f64 * base_attack_interval_seconds / 14.0).floor();
     (contribution <= i64::MAX as f64).then_some(contribution as i64)
 }
 

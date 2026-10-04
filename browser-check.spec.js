@@ -26,6 +26,33 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   await page.locator("#tab-build").click();
   await expect(page.locator("#build-live-status")).toContainText(/Build valid|Valid/, { timeout: 30000 });
 
+  await page.locator("#build-progression").selectOption("spawn");
+  await page.locator("#build-level").fill("1");
+  for (const attribute of ["stamina", "strength", "agility", "intellect"]) {
+    await page.locator(`#build-${attribute}`).fill("0");
+  }
+  await page.locator("#build-stamina").fill("3");
+  await expect(page.locator("#build-stamina")).toHaveValue("2");
+  await expect(page.locator("#points-unassigned")).toHaveText("0");
+  await expect(page.locator("#build-total-stamina")).toHaveText("22");
+
+  await page.locator("#build-stamina").fill("-1");
+  await expect(page.locator("#build-stamina")).toHaveValue("0");
+  await expect(page.locator("#build-total-stamina")).toHaveText("20");
+
+  await page.locator("#build-stamina").fill("2");
+  await page.locator("#build-strength").fill("1");
+  await expect(page.locator("#build-strength")).toHaveValue("0");
+  await expect(page.locator("#build-strength")).toHaveAttribute("max", "0");
+
+  await page.locator("#build-level").fill("10");
+  await page.locator("#build-stamina").fill("15");
+  await page.locator("#build-strength").fill("5");
+  await page.locator("#build-level").fill("1");
+  await expect(page.locator("#build-stamina")).toHaveValue("2");
+  await expect(page.locator("#build-strength")).toHaveValue("0");
+  await expect(page.locator("#points-spent")).toHaveText("2");
+
   await page.locator("#tab-grinding").click();
   await page.locator("#grind-form").evaluate(form => form.requestSubmit());
   await expect(page.locator("#grind-result .leaderboard-result, #grind-result .result-error")).toBeVisible({ timeout: 30000 });

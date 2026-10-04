@@ -1403,5 +1403,67 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Manhole Manifest",
+    "slug": "manhole-manifest-1st-edition-2848",
+    "rank": 1,
+    "quick_facts": [
+      {
+        "label": "Rank",
+        "value": "1"
+      },
+      {
+        "label": "Level requirement",
+        "value": "90"
+      },
+      {
+        "label": "Duration",
+        "value": "20 minutes"
+      }
+    ],
+    "level_requirement": 90,
+    "attribute_requirements": [
+      {
+        "attribute": "Strength",
+        "amount": 800,
+        "value": "800"
+      },
+      {
+        "attribute": "Progression",
+        "amount": null,
+        "value": "Rebirth"
+      }
+    ],
+    "cast_time": null,
+    "duration": {
+      "Seconds": 1200.0
+    },
+    "cooldown": null,
+    "energy_cost": null,
+    "effects": [
+      {
+        "effect_type": "Timed effect",
+        "details": "Summoned straight from the storm drain. Gain 480 energy every 12 seconds and increase Attack Power by 700 for 20 minutes.",
+        "components": [
+          {
+            "Periodic": {
+              "resource": "Energy",
+              "direction": "Gain",
+              "amount": {
+                "Fixed": 480
+              },
+              "interval_seconds": 12
+            }
+          },
+          {
+            "TimedStatModifier": {
+              "stat": "Attack power",
+              "value": 700
+            }
+          }
+        ]
+      }
+    ]
   }
 ]

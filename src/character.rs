@@ -652,10 +652,14 @@ fn confirmed_derived_stats(
     } else {
         base_attack_interval_seconds
     };
+    let implant_damage = equipment
+        .iter()
+        .filter(|item| item.item_type == "Implant")
+        .map(|item| item.stats.flat_damage)
+        .sum::<i64>();
     let panel_damage = attack_power.and_then(|attack_power| {
         let contribution =
-            basic_attack_power_damage_contribution(attack_power, attack_interval_seconds)?;
-        let flat_damage = item_stats.flat_damage + set_stats.flat_damage;
+            basic_attack_power_damage_contribution(attack_power, base_attack_interval_seconds)?;
         let (base_min, base_max) = if let Some(weapon) = main_hand {
             (i64::from(weapon.damage_min?), i64::from(weapon.damage_max?))
         } else {
@@ -665,8 +669,8 @@ fn confirmed_derived_stats(
             )
         };
         Some((
-            u32::try_from(base_min + contribution + flat_damage).ok()?,
-            u32::try_from(base_max + contribution + flat_damage).ok()?,
+            u32::try_from(base_min + contribution + implant_damage).ok()?,
+            u32::try_from(base_max + contribution + implant_damage).ok()?,
         ))
     });
     let total_agility = u32::try_from(final_attributes.agility).ok();
@@ -1443,7 +1447,6 @@ mod tests {
                 intellect: Some(121),
                 attack_power: Some(360),
                 crit: Some(56),
-                damage: Some(880),
                 max_health: Some(7_500),
                 max_energy: Some(5_000),
                 energy_regen: Some(500),
@@ -1454,6 +1457,16 @@ mod tests {
         aggregate_gear.damage_min = Some(950);
         aggregate_gear.damage_max = Some(1_030);
         aggregate_gear.attack_speed = Some(2.0);
+        let mut aggregate_implants = item(
+            "observed-implants",
+            "Implant",
+            ItemStats {
+                damage: Some(880),
+                ..ItemStats::default()
+            },
+            ItemRequirements::default(),
+        );
+        aggregate_implants.implant_slot = Some(ImplantSlot::Brain);
         let set = ItemSet {
             name: "Observed set".into(),
             slug: "observed-set".into(),
@@ -1496,18 +1509,30 @@ mod tests {
                 agility: 176,
                 intellect: 0,
             },
-            equipment: vec![EquippedItem {
-                slot: EquipmentSlot::MainHand,
-                slot_index: 0,
-                item_slug: aggregate_gear.slug.clone(),
-            }],
+            equipment: vec![
+                EquippedItem {
+                    slot: EquipmentSlot::MainHand,
+                    slot_index: 0,
+                    item_slug: aggregate_gear.slug.clone(),
+                },
+                EquippedItem {
+                    slot: EquipmentSlot::ImplantBrain,
+                    slot_index: 0,
+                    item_slug: aggregate_implants.slug.clone(),
+                },
+            ],
             skills: Vec::new(),
             active_skill_effects: Vec::new(),
             faction_notoriety: None,
             guild_level: None,
         };
 
-        let inspection = inspect_build(&observed, &[aggregate_gear], &[set], &[]);
+        let inspection = inspect_build(
+            &observed,
+            &[aggregate_gear, aggregate_implants],
+            &[set],
+            &[],
+        );
         assert_eq!(
             inspection.final_attributes,
             AttributeTotals {
@@ -1556,6 +1581,87 @@ mod tests {
                 - 2_297.955_148_571_428_7)
                 .abs()
                 < 1e-9
+        );
+    }
+
+    #[test]
+    fn speed_buffs_do_not_reduce_damage_per_hit_and_only_implants_add_flat_damage() {
+        let mut weapon = item(
+            "test-weapon",
+            "One-Hand Sword",
+            ItemStats::default(),
+            ItemRequirements::default(),
+        );
+        weapon.damage_min = Some(10);
+        weapon.damage_max = Some(20);
+        weapon.attack_speed = Some(2.0);
+        let mut implant = item(
+            "test-implant",
+            "Implant",
+            ItemStats {
+                damage: Some(30),
+                ..ItemStats::default()
+            },
+            ItemRequirements::default(),
+        );
+        implant.implant_slot = Some(ImplantSlot::Brain);
+        let speed_buff = Skill {
+            name: "Speed buff".into(),
+            slug: "speed-buff".into(),
+            rank: Some(1),
+            quick_facts: Vec::new(),
+            level_requirement: None,
+            attribute_requirements: Vec::new(),
+            cast_time: None,
+            duration: None,
+            cooldown: None,
+            energy_cost: None,
+            effects: vec![SkillEffect {
+                effect_type: "Timed effect".into(),
+                details: "Attack speed -500".into(),
+                components: vec![SkillEffectComponent::TimedStatModifier {
+                    stat: "Attack speed".into(),
+                    value: -500,
+                }],
+            }],
+        };
+        let mut character = build(vec![
+            EquippedItem {
+                slot: EquipmentSlot::MainHand,
+                slot_index: 0,
+                item_slug: weapon.slug.clone(),
+            },
+            EquippedItem {
+                slot: EquipmentSlot::ImplantBrain,
+                slot_index: 0,
+                item_slug: implant.slug.clone(),
+            },
+        ]);
+        character.skills.push(speed_buff.slug.clone());
+        character.active_skill_effects.push(ActiveSkillEffect {
+            skill_slug: speed_buff.slug.clone(),
+            role: ActiveSkillRole::Buff,
+        });
+
+        let inspection = inspect_build(&character, &[weapon, implant], &[], &[speed_buff]);
+        assert_eq!(inspection.confirmed_derived_stats.attack_power, Some(100));
+        assert_eq!(
+            inspection.confirmed_derived_stats.panel_damage_min,
+            Some(54)
+        );
+        assert_eq!(
+            inspection.confirmed_derived_stats.panel_damage_max,
+            Some(64)
+        );
+        assert_eq!(
+            inspection.confirmed_derived_stats.attack_interval_seconds,
+            1.5
+        );
+        assert_eq!(
+            inspection
+                .confirmed_derived_stats
+                .expected_noncritical_basic_attack_hit,
+            Some(59.0)
         );
     }
 

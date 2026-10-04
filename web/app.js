@@ -634,6 +634,8 @@ function numericValue(selector, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+const ALLOCATED_ATTRIBUTES = ["stamina", "strength", "agility", "intellect"];
+
 function allocationBudget(level, progression) {
   const base = level * 2;
   if (progression === "spawn") return base;
@@ -641,18 +643,42 @@ function allocationBudget(level, progression) {
   return progression === "ascension" ? rebirth + Math.max(0, level - 100) * 20 : rebirth;
 }
 
+function normalizeGuidedAllocations(changedAttribute = null) {
+  const level = Math.max(1, Math.trunc(numericValue("#build-level", 1)));
+  const budget = allocationBudget(level, $("#build-progression").value || "spawn");
+  const values = Object.fromEntries(ALLOCATED_ATTRIBUTES.map(attribute => [
+    attribute,
+    Math.max(0, Math.trunc(numericValue(`#build-${attribute}`)))
+  ]));
+  const order = changedAttribute && ALLOCATED_ATTRIBUTES.includes(changedAttribute)
+    ? [...ALLOCATED_ATTRIBUTES.filter(attribute => attribute !== changedAttribute), changedAttribute]
+    : ALLOCATED_ATTRIBUTES;
+  let remaining = budget;
+  for (const attribute of order) {
+    values[attribute] = Math.min(values[attribute], remaining);
+    remaining -= values[attribute];
+  }
+  for (const attribute of ALLOCATED_ATTRIBUTES) $(`#build-${attribute}`).value = values[attribute];
+  return values;
+}
+
 function updatePointBudget(build, finalAttributes = null) {
   const level = Math.max(1, Math.trunc(Number(build.level) || 1));
   const allocated = build.allocated || {};
-  const spent = ["stamina", "strength", "agility", "intellect"].reduce((sum, attribute) => sum + Math.max(0, Math.trunc(Number(allocated[attribute]) || 0)), 0);
+  const values = Object.fromEntries(ALLOCATED_ATTRIBUTES.map(attribute => [
+    attribute,
+    Math.max(0, Math.trunc(Number(allocated[attribute]) || 0))
+  ]));
+  const spent = ALLOCATED_ATTRIBUTES.reduce((sum, attribute) => sum + values[attribute], 0);
   const budget = allocationBudget(level, build.progression || "spawn");
   const unassigned = budget - spent;
   $("#points-budget").textContent = budget.toLocaleString();
   $("#points-spent").textContent = spent.toLocaleString();
   $("#points-unassigned").textContent = unassigned.toLocaleString();
   $("#point-budget").classList.toggle("overspent", unassigned < 0);
-  for (const attribute of ["stamina", "strength", "agility", "intellect"]) {
-    const fallback = 20 + Math.max(0, Math.trunc(Number(allocated[attribute]) || 0));
+  for (const attribute of ALLOCATED_ATTRIBUTES) {
+    $(`#build-${attribute}`).max = Math.max(0, budget - (spent - values[attribute]));
+    const fallback = 20 + values[attribute];
     $(`#build-total-${attribute}`).textContent = Number(finalAttributes?.[attribute] ?? fallback).toLocaleString();
   }
 }
@@ -767,11 +793,12 @@ function applyBuildToGuided(build) {
   build = migrateBuild(build);
   $("#build-level").value = build.level ?? 1;
   $("#build-progression").value = build.progression || "spawn";
-  for (const attribute of ["stamina", "strength", "agility", "intellect"]) $(`#build-${attribute}`).value = build.allocated?.[attribute] ?? 0;
+  for (const attribute of ALLOCATED_ATTRIBUTES) $(`#build-${attribute}`).value = build.allocated?.[attribute] ?? 0;
+  const allocated = normalizeGuidedAllocations();
   const ascended = build.progression === "ascension";
   $("#implants-tab").hidden = !ascended;
   if (!ascended && $("[data-loadout-tab=implants]")?.getAttribute("aria-selected") === "true") setLoadoutTab("equipment");
-  updatePointBudget(build);
+  updatePointBudget({ ...build, allocated });
   renderSlotBoard(build.equipment || []);
   const activeEffects = build.active_skill_effects || [];
   const buffs = [...new Set(activeEffects
@@ -781,8 +808,9 @@ function applyBuildToGuided(build) {
   renderActiveSkillBoard();
 }
 
-function buildFromGuided() {
+function buildFromGuided(changedAttribute = null) {
   const previous = safeJson($("#build-json"), EXAMPLES.build);
+  const allocated = normalizeGuidedAllocations(changedAttribute);
   const equipment = Array.isArray(previous.equipment) ? previous.equipment : [];
   const activeEffects = [
     ...state.activeSkills.buffs.filter(Boolean).map(skill_slug => ({ skill_slug, role: "buff" })),
@@ -793,7 +821,7 @@ function buildFromGuided() {
     ...previous,
     level: Math.max(1, Math.trunc(numericValue("#build-level", 1))),
     progression: $("#build-progression").value,
-    allocated: Object.fromEntries(["stamina", "strength", "agility", "intellect"].map(attribute => [attribute, Math.max(0, Math.trunc(numericValue(`#build-${attribute}`)))])),
+    allocated,
     equipment,
     skills,
     active_skill_effects: activeEffects,
@@ -802,9 +830,9 @@ function buildFromGuided() {
   };
 }
 
-function syncBuildFromGuided() {
+function syncBuildFromGuided(changedAttribute = null) {
   const textarea = $("#build-json");
-  const build = buildFromGuided();
+  const build = buildFromGuided(changedAttribute);
   textarea.value = pretty(build);
   store("build", textarea.value);
   validateTextarea(textarea, $("#build-validity"));
@@ -1346,7 +1374,10 @@ function initEditors() {
   restoreGrindingPreferences();
   validateTextarea(...fields.build); validateTextarea(...fields.encounter); validateTextarea(...fields.grind);
 
-  ["#build-level", "#build-stamina", "#build-strength", "#build-agility", "#build-intellect"].forEach(selector => $(selector).addEventListener("input", syncBuildFromGuided));
+  $("#build-level").addEventListener("input", () => syncBuildFromGuided());
+  for (const attribute of ALLOCATED_ATTRIBUTES) {
+    $(`#build-${attribute}`).addEventListener("input", () => syncBuildFromGuided(attribute));
+  }
   $("#build-progression").addEventListener("input", () => { syncBuildFromGuided(); applyBuildToGuided(buildFromGuided()); });
   $$('[data-loadout-tab]').forEach(button => button.addEventListener("click", () => setLoadoutTab(button.dataset.loadoutTab)));
   ["#enc-order", "#enc-assume-survival", "#enc-hit", "#enc-speed", "#enc-crit", "#enc-dodge", "#enc-health", "#enc-mob-hit", "#enc-energy", "#enc-energy-rate"].forEach(selector => $(selector).addEventListener("input", () => { syncEncounterFromGuided(); syncGrindFromGuided(); }));
