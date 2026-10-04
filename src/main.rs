@@ -1,8 +1,6 @@
 use anyhow::{Context, Result, bail};
 use flate2::{Compression, write::GzEncoder};
-use fo2_dps::{
-    character, db, effects, encounter, grinding, mobs, pages, scraper, storage, validation, web,
-};
+use fo2_dps::{character, db, effects, grinding, mobs, pages, scraper, storage, validation, web};
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -74,10 +72,6 @@ fn main() -> Result<()> {
 
         [_, command, path] if command == "inspect-build" => inspect_build_file(path)?,
 
-        [_, command, build_path, mob_slug, assumptions_path] if command == "encounter" => {
-            run_encounter(build_path, mob_slug, assumptions_path)?
-        }
-
         [_, command, build_path, mob_slug, assumptions_path] if command == "grind" => {
             run_grind(build_path, mob_slug, assumptions_path)?
         }
@@ -130,7 +124,6 @@ fn main() -> Result<()> {
                  fo2-dps build-web-bundle\n\
                  fo2-dps assemble-pages\n\
                  fo2-dps inspect-build <build.json>\n\
-                 fo2-dps encounter <build.json> <mob-slug> <assumptions.json>\n\
                  fo2-dps grind <build.json> <mob-slug> <assumptions.json>\n\
                  fo2-dps grind-compare <build.json> <comparison.json>\n\
                  fo2-dps serve [address]"
@@ -214,56 +207,6 @@ fn run_grind(build_path: &str, mob_slug: &str, assumptions_path: &str) -> Result
         serde_json::to_string_pretty(&serde_json::json!({
             "build": build_inspection,
             "grinding": estimate
-        }))?
-    );
-    Ok(())
-}
-
-fn run_encounter(build_path: &str, mob_slug: &str, assumptions_path: &str) -> Result<()> {
-    let build: character::CharacterBuild = serde_json::from_slice(&fs::read(build_path)?)
-        .with_context(|| format!("Could not load character build from {build_path}"))?;
-    let mut assumptions: encounter::EncounterAssumptions =
-        serde_json::from_slice(&fs::read(assumptions_path)?).with_context(|| {
-            format!("Could not load grinding assumptions from {assumptions_path}")
-        })?;
-    let items: Vec<Item> = serde_json::from_slice(&fs::read("data/items.json")?)
-        .context("Could not load data/items.json")?;
-    let item_sets: Vec<ItemSet> = serde_json::from_slice(&fs::read("data/item-sets.json")?)
-        .context("Could not load data/item-sets.json")?;
-    let skills = load_skills()?;
-    let mob_records: Vec<mobs::Mob> = serde_json::from_slice(&fs::read("data/mobs.json")?)
-        .context("Could not load data/mobs.json")?;
-    let mob = mob_records
-        .iter()
-        .find(|mob| mob.slug == mob_slug)
-        .with_context(|| format!("Mob slug {mob_slug} is absent from data/mobs.json"))?;
-
-    let build_inspection = character::inspect_build(&build, &items, &item_sets, &skills);
-    if !build_inspection.is_valid() {
-        println!("{}", serde_json::to_string_pretty(&build_inspection)?);
-        bail!("Character build has validation errors");
-    }
-    assumptions.apply_build_defense(
-        build_inspection.level,
-        build_inspection.confirmed_derived_stats.armor,
-    );
-    let estimate = encounter::estimate_encounter(mob, assumptions)
-        .map_err(anyhow::Error::msg)
-        .context("Could not estimate encounter")?;
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&serde_json::json!({
-            "build": build_inspection,
-            "mob": {
-                "slug": mob.slug,
-                "name": mob.name,
-                "level": mob.level,
-                "published_health": mob.health,
-                "published_damage": mob.damage,
-                "published_attack_speed_ms": mob.attack_speed_ms,
-                "attacks": mob.attacks
-            },
-            "encounter": estimate
         }))?
     );
     Ok(())

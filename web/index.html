@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#1e1e2e">
-  <meta name="description" content="Explore Fantasy Online 2 data, inspect builds, and model encounters and grinding routes.">
+  <meta name="description" content="Explore Fantasy Online 2 data, inspect and share builds, and model grinding routes.">
   <title>Forge of Numbers · FO2 Calculator</title>
   <script>
     (function () {
@@ -16,6 +16,9 @@
         if (Object.hasOwn(colors, saved)) theme = saved;
       } catch { /* Storage can be disabled. */ }
       document.documentElement.dataset.theme = theme;
+      try {
+        if (localStorage.getItem("fo2-dps:yokou-mode") === "true") document.documentElement.dataset.yokouMode = "true";
+      } catch { /* Storage can be disabled. */ }
       document.querySelector('meta[name="theme-color"]').content = colors[theme];
     }());
   </script>
@@ -36,6 +39,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <label class="yokou-toggle" for="yokou-mode"><input id="yokou-mode" type="checkbox"><span>Y</span>okou Mode</span></label>
       <label class="theme-picker" for="theme-select"><span></span>Color scheme</span><select id="theme-select" aria-label="Catppuccin color scheme"><option value="latte">Latte</option><option value="frappe">Frappé</option><option value="macchiato">Macchiato</option><option value="mocha">Mocha</option></select></label>
       <div class="api-status" id="api-status" role="status">
         <span class="status-dot" aria-hidden="true"></span>
@@ -49,7 +53,7 @@
       <button class="nav-tab" id="tab-overview" role="tab" aria-selected="true" aria-controls="panel-overview" data-tab="overview"><span class="tab-icon" aria-hidden="true">◈</span>Overview</button>
       <button class="nav-tab" id="tab-explorer" role="tab" aria-selected="false" aria-controls="panel-explorer" tabindex="-1" data-tab="explorer"><span class="tab-icon" aria-hidden="true">⌕</span>Data Explorer</button>
       <button class="nav-tab" id="tab-build" role="tab" aria-selected="false" aria-controls="panel-build" tabindex="-1" data-tab="build"><span class="tab-icon" aria-hidden="true">⚒</span>Build Lab</button>
-      <button class="nav-tab" id="tab-encounter" role="tab" aria-selected="false" aria-controls="panel-encounter" tabindex="-1" data-tab="encounter"><span class="tab-icon" aria-hidden="true">⚔</span>Encounter</button>
+
       <button class="nav-tab" id="tab-grinding" role="tab" aria-selected="false" aria-controls="panel-grinding" tabindex="-1" data-tab="grinding"><span class="tab-icon" aria-hidden="true">✦</span>Grinding</button>
     </div>
   </nav>
@@ -60,7 +64,7 @@
         <div class="hero-copy">
           <p class="kicker"><span></span>Analyst’s workbench</p>
           <h1></h1>Turn the archive into<br><em>battle plans.</em></h1>
-          <p class="hero-text">Explore the compendium, validate a character build, and model combat or farming scenarios with every assumption in view.</p>
+          <p class="hero-text">Explore the compendium, validate and share a character build, and model farming routes with every assumption in view.</p>
           <div class="hero-actions">
             <button class="button primary" type="button" data-go="build">Open Build Lab <span aria-hidden="true">→</span></button>
             <button class="button secondary" type="button" data-go="explorer">Browse archive</button>
@@ -84,7 +88,7 @@
         <div class="workflow-grid">
           <button class="workflow-card" type="button" data-go="explorer"><span class="step">01</span><span><strong>Find your loadout</strong><small>Search items, sets, skills, and enemies.</small></span><span aria-hidden="true">↗</span></button>
           <button class="workflow-card" type="button" data-go="build"><span class="step">02</span><span><strong>Validate the build</strong><small>Check attributes, equipment, and effects.</small></span><span aria-hidden="true">↗</span></button>
-          <button class="workflow-card" type="button" data-go="encounter"><span class="step">03</span><span><strong>Test the fight</strong><small>Estimate survival, damage, and time to kill.</small></span><span aria-hidden="true">↗</span></button>
+          <button class="workflow-card" type="button" data-go="grinding"><span class="step">03</span><span><strong>Plan the grind</strong><small>Rank targets by gold, pure coins, or faction XP.</small></span><span aria-hidden="true">↗</span></button>
         </div>
       </section>
     </section>
@@ -145,49 +149,39 @@
             <div class="active-effect-group"><div class="effect-group-heading"><strong>Active buffs / morphs</strong><span id="buff-count">0/5 active</span></div><div id="buff-slots" class="slot-board effect-slot-board"></div></div>
             <div class="active-effect-group"><div class="effect-group-heading"><strong></strong>Active pet</strong><span id="pet-availability">Unlocks at Rebirth</span></div><div id="pet-slot" class="slot-board effect-slot-board pet-slot-board"></div></div>
           </section>
-          <details class="advanced-editor"><summary>Advanced JSON / save format</summary><div class="advanced-actions"><button class="button mini secondary" id="download-build" type="button">Download build</button><label class="button mini secondary file-button" for="import-build">Import build<input id="import-build" type="file" accept="application/json,.json"></label></div><div class="field code-field"><label for="build-json">Build JSON</label><textarea id="build-json" spellcheck="false" aria-describedby="build-hint"></textarea><small id="build-hint">Edits here sync back to the guided form when the field loses focus.</small></div></details>
+          <details class="advanced-editor"><summary>Advanced JSON / share format</summary><div class="advanced-actions"><button class="button mini secondary" id="download-build" type="button">Download build</button><label class="button mini secondary file-button" for="import-build">Import build<input id="import-build" type="file" accept="application/json,.json"></label><button class="button mini secondary" id="copy-build-code" type="button">Copy build code</button><button class="button mini secondary" id="copy-share-url" type="button">Copy share URL</button></div><div class="field code-field"><label for="build-code">Build code</label><textarea id="build-code" rows="3" spellcheck="false" placeholder="Paste a build code here"></textarea><button class="button mini secondary" id="load-build-code" type="button">Load build code</button><small id="build-code-status" aria-live="polite">Codes contain the full build and can be shared without an account.</small></div><div class="field code-field"><label for="build-json">Build JSON</label><textarea id="build-json" spellcheck="false" aria-describedby="build-hint"></textarea><small id="build-hint">Edits here sync back to the guided form when the field loses focus.</small></div></details>
           <div class="live-validation"><span class="live-dot" aria-hidden="true"></span><span id="build-live-status" role="status">Waiting for validation…</span><span class="json-validity" id="build-validity" aria-live="polite"></span></div>
         </form>
         <div class="result-column"><div id="build-result" class="result-placeholder"><span aria-hidden="true">⚒</span><h2>Awaiting inspection</h2><p>Submit the example or tailor it to your character. Validation and aggregate stats will appear here.</p></div></div>
       </div>
     </section>
 
-    <section class="tab-panel" id="panel-encounter" role="tabpanel" aria-labelledby="tab-encounter" data-panel="encounter" hidden>
-      <header class="page-heading"><div><p class="eyebrow">Combat simulator</p><h1>Encounter</h1><p>Model a single target using your shared build and explicit combat assumptions.</p></div></header>
-      <div class="lab-layout">
-        <form class="card editor-card" id="encounter-form" novalidate>
-          <div class="card-heading"><div><h2>Combat scenario</h2><p>Build-derived combat values with explicit overrides</p></div><button class="text-button" type="button" data-reset="encounter">Reset</button></div>
-          <div class="field"><label for="encounter-mob">Mob slug</label><input id="encounter-mob" required value="angry-skele-8" list="mob-slugs" placeholder="e.g. angry-skele-8" autocomplete="off"></div>
-          <div id="scenario-build-sync" class="scenario-build-sync" aria-live="polite">Waiting for Build Lab inspection…</div>
-          <div class="guided-grid two-columns scenario-controls">
-            <div class="field"><label for="enc-hit">Expected noncritical hit <span class="input-source" id="enc-hit-source">Build Lab</span></label><input id="enc-hit" type="number" min="0.01" step="any"></div>
-            <div class="field"><label for="enc-speed">Attack interval (seconds) <span class="input-source" id="enc-speed-source">Build Lab</span></label><input id="enc-speed" type="number" min="0.01" step="any"></div>
-            <div class="field"><label for="enc-crit">Crit (%) <span class="input-source" id="enc-crit-source">Required assumption</span></label><input id="enc-crit" type="number" min="0" step="any"></div>
-            <div class="field"><label for="enc-dodge">Dodge (%) <span class="input-source" id="enc-dodge-source">Required assumption</span></label><input id="enc-dodge" type="number" min="0" max="100" step="any"></div>
-            <div class="field"><label for="enc-health">Maximum health <span class="input-source" id="enc-health-source">Build Lab</span></label><input id="enc-health" type="number" min="0.01" step="any"></div>
-            <div class="field"><label for="enc-mob-hit">Post-mitigation mob hit override <span class="input-source">Optional</span></label><input id="enc-mob-hit" type="number" min="0" step="any" placeholder="Derived from mob damage and Armor"></div>
-            <div class="field"><label for="enc-order">Simultaneous attacks</label><select id="enc-order"><option value="player_first">Player first</option><option value="mob_first">Mob first</option></select></div>
-            <label class="assumption-toggle" for="enc-assume-survival"><input id="enc-assume-survival" type="checkbox"><span><strong>Assume player survives</strong><small>Explicit fallback that skips all incoming damage</small></span></label>
-            <div class="field"><label for="enc-energy">Initial energy (optional) <span class="input-source">Current resource</span></label><input id="enc-energy" type="number" min="0" step="any" placeholder="Not modeled"></div>
-            <div class="field"><label for="enc-energy-rate">Net energy cost / second</label><input id="enc-energy-rate" type="number" step="any" placeholder="0"></div>
-          </div>
-          <details class="advanced-editor"><summary>Advanced JSON / save format</summary><div class="field code-field"><label for="encounter-json">Encounter assumptions JSON</label><textarea id="encounter-json" spellcheck="false"></textarea></div></details>
-          <div class="form-actions"><span class="json-validity" id="encounter-validity" aria-live="polite"></span><button class="button primary" type="submit">Run encounter <span aria-hidden="true">⚔</span></button></div>
-        </form>
-        <div class="result-column"><div id="encounter-result" class="result-placeholder"><span aria-hidden="true">⚔</span><h2>No battle modeled</h2><p>Enter a mob slug and tune the assumptions to forecast the encounter.</p></div></div>
-      </div>
-    </section>
 
     <section class="tab-panel" id="panel-grinding" role="tabpanel" aria-labelledby="tab-grinding" data-panel="grinding" hidden>
       <header class="page-heading"><div><p class="eyebrow">Route planner</p><h1>Grinding</h1><p>Find the strongest farming targets for the current build, then inspect individual routes.</p></div></header>
       <div class="mode-switch" role="tablist" aria-label="Grinding mode"><button type="button" role="tab" aria-selected="true" data-grind-mode="leaderboard">Top mobs</button><button type="button" role="tab" aria-selected="false" data-grind-mode="single">Single target</button><button type="button" role="tab" aria-selected="false" data-grind-mode="compare">Advanced comparison</button></div>
       <div class="lab-layout leaderboard-layout" id="grind-layout">
         <form class="card editor-card" id="grind-form" novalidate>
-          <div id="grind-leaderboard-fields">
-            <div class="card-heading"><div><h2>Top 50 mobs by faction</h2><p>Choose a faction, then rank only its mobs by faction XP or gold per hour</p></div></div>
+          <details class="combat-assumptions" open><summary>Combat assumptions</summary>
+            <div id="scenario-build-sync" class="scenario-build-sync" aria-live="polite">Waiting for Build Lab inspection…</div>
             <div class="guided-grid two-columns scenario-controls">
-              <div class="field"><label for="grind-leaderboard-metric">Order by</label><select id="grind-leaderboard-metric"><option value="expected_net_value_per_hour">Gold per hour</option><option value="faction_xp_per_hour">Faction XP per hour</option></select></div>
-              <div class="field"><label for="grind-leaderboard-faction">Faction</label><select id="grind-leaderboard-faction"><option value="">All factions (gold ranking only)</option></select></div>
+              <div class="field"><label for="enc-hit">Expected noncritical hit <span class="input-source" id="enc-hit-source">Build Lab</span></label><input id="enc-hit" type="number" min="0.01" step="any"></div>
+              <div class="field"><label for="enc-speed">Attack interval (seconds) <span class="input-source" id="enc-speed-source">Build Lab</span></label><input id="enc-speed" type="number" min="0.01" step="any"></div>
+              <div class="field"><label for="enc-crit">Crit (%) <span class="input-source" id="enc-crit-source">Required assumption</span></label><input id="enc-crit" type="number" min="0" step="any"></div>
+              <div class="field"><label for="enc-dodge">Dodge (%) <span class="input-source" id="enc-dodge-source">Required assumption</span></label><input id="enc-dodge" type="number" min="0" max="100" step="any"></div>
+              <div class="field"><label for="enc-health">Maximum health <span class="input-source" id="enc-health-source">Build Lab</span></label><input id="enc-health" type="number" min="0.01" step="any"></div>
+              <div class="field"><label for="enc-mob-hit">Post-mitigation mob hit override <span class="input-source">Optional</span></label><input id="enc-mob-hit" type="number" min="0" step="any" placeholder="Derived from mob damage and Armor"></div>
+              <div class="field"><label for="enc-order">Simultaneous attacks</label><select id="enc-order"><option value="player_first">Player first</option><option value="mob_first">Mob first</option></select></div>
+              <label class="assumption-toggle" for="enc-assume-survival"><input id="enc-assume-survival" type="checkbox"><span><strong>Assume player survives</strong><small>Explicit fallback that skips all incoming damage</small></span></label>
+              <div class="field"><label for="enc-energy">Initial energy (optional) <span class="input-source">Current resource</span></label><input id="enc-energy" type="number" min="0" step="any" placeholder="Not modeled"></div>
+              <div class="field"><label for="enc-energy-rate">Net energy cost / second</label><input id="enc-energy-rate" type="number" step="any" placeholder="0"></div>
+            </div>
+          </details>
+          <div id="grind-leaderboard-fields">
+            <div class="card-heading"><div><h2>Top 50 mobs by faction</h2><p>Rank by total known gold, pure coin drops, or faction XP</p></div></div>
+            <div class="guided-grid two-columns scenario-controls">
+              <div class="field"><label for="grind-leaderboard-metric">Order by</label><select id="grind-leaderboard-metric"><option value="expected_net_value_per_hour">Gold per hour</option><option value="expected_coins_per_hour">Pure coin drops per hour</option><option value="faction_xp_per_hour">Faction XP per hour</option></select></div>
+              <div class="field"><label for="grind-leaderboard-faction">Faction</label><select id="grind-leaderboard-faction"><option value="">All factions (gold or coin ranking)</option></select></div>
               <div class="field"><label>Item valuation</label><div class="locked-field">Shop value only</div></div>
               <label class="assumption-toggle" for="grind-leaderboard-spawn-cap"><input id="grind-leaderboard-spawn-cap" type="checkbox"><span><strong>Apply spawn cap</strong><small>Limits</small> positive-duration routes to published map spawns × 120 kills/hour; zero-second one-shots use this bound automatically.</small></span></label>
               <div class="field"><label for="grind-leaderboard-max-clicks">Maximum loot clicks / hour</label><input id="grind-leaderboard-max-clicks" type="number" min="0" step="any" placeholder="No limit"></div>
@@ -195,10 +189,10 @@
               <div class="field"><label for="grind-leaderboard-recovery">Recovery / kill (seconds)</label><input id="grind-leaderboard-recovery" type="number" min="0" step="any" value="0"></div>
               <div class="field"><label for="grind-leaderboard-respawn">Effective respawn wait / kill (seconds)</label><input id="grind-leaderboard-respawn" type="number" min="0" step="any" value="0"></div>
             </div>
-            <div class="scenario-build-sync"><strong>MVP assumptions:</strong> the player always survives, each successful roll drops one item requiring one loot click, and no consumables are spent. Opening one-shots reset attack timing and, with zero route overhead, use published map spawns × 120 kills/hour. Resource targets and boss candidates are excluded. Gold/hour is the known subtotal; unknown drop values contribute zero.</div>
+            <div class="scenario-build-sync"><strong>MVP assumptions:</strong> the player always survives, each successful roll drops one item requiring one loot click, and no consumables are spent. Opening one-shots reset attack timing and, with zero route overhead, use published map spawns × 120 kills/hour. Resource targets and boss candidates are excluded. Gold/hour is the known coin-plus-item subtotal; pure coin drops/hour ignores items and uses only published solo coin ranges. Unknown values remain unrankable or contribute zero as appropriate.</div>
           </div>
           <div id="grind-single-fields" hidden>
-            <div class="card-heading"><div><h2>Farming route</h2><p>Encounter settings are shared from the Encounter tab</p></div><button class="text-button" type="button" data-reset="grind">Reset</button></div>
+            <div class="card-heading"><div><h2>Farming route</h2><p>Uses the combat assumptions above</p></div><button class="text-button" type="button" data-reset="grind">Reset</button></div>
             <div class="field"><label for="grind-mob">Mob slug</label><input id="grind-mob" required value="angry-skele-8" list="mob-slugs" placeholder="e.g. angry-skele-8" autocomplete="off"></div>
             <div class="guided-grid two-columns scenario-controls">
               <div class="field"><label for="grind-profile">Drop profile index</label><input id="grind-profile" type="number" min="0" step="1"></div>
@@ -217,7 +211,7 @@
           </div>
           <div class="form-actions"><span class="json-validity" id="grind-validity" aria-live="polite"></span><button class="button primary" type="submit"><span id="grind-submit-label">Rank top 50</span> <span aria-hidden="true">→</span></button></div>
         </form>
-        <div class="result-column"><div id="grind-result" class="result-placeholder"><span aria-hidden="true">✦</span><h2>Ready to rank mobs</h2><p>Use the current Build Lab character to find the top 50 targets by gold or faction XP per hour.</p></div></div>
+        <div class="result-column"><div id="grind-result" class="result-placeholder"><span aria-hidden="true">✦</span><h2>Ready to rank mobs</h2><p>Use the current Build Lab character to rank targets by gold, pure coin drops, or faction XP per hour.</p></div></div>
       </div>
     </section>
   </main>

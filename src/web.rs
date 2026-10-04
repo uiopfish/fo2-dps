@@ -21,7 +21,7 @@ use crate::character::{
 #[cfg(not(target_arch = "wasm32"))]
 use crate::db::load_skills;
 use crate::db::{Item, ItemSet, Skill};
-use crate::encounter::{EncounterAssumptions, estimate_encounter};
+
 use crate::grinding::{
     GrindingAssumptions, GrindingComparison, GrindingRankingMetric, PriceModel, compare_grinding,
     estimate_grinding, grinding_leaderboard_for_faction,
@@ -30,7 +30,7 @@ use crate::mobs::Mob;
 
 #[cfg(not(target_arch = "wasm32"))]
 const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
-pub const WEB_BUILD_ID: &str = "2026-10-02-normalized-mobs-v28";
+pub const WEB_BUILD_ID: &str = "2026-10-03-grinding-share-v29";
 const DEFAULT_PAGE_SIZE: usize = 30;
 const MAX_PAGE_SIZE: usize = 100;
 
@@ -327,7 +327,7 @@ fn route(data: &WebData, method: &str, target: &str, body: &[u8]) -> Response {
             "/api/build/inspect" => inspect_build_api(data, body),
             "/api/grind/compare" => grind_compare_api(data, body),
             "/api/grind/leaderboard" => grind_leaderboard_api(data, body),
-            _ if path.starts_with("/api/encounter/") => encounter_api(data, &path[15..], body),
+
             _ if path.starts_with("/api/grind/") => grind_api(data, &path[11..], body),
             _ => Response::json_error(404, "route not found"),
         };
@@ -360,7 +360,7 @@ fn summary(data: &WebData) -> Response {
             "item_types": data.item_types,
             "factions": factions,
             "web_build_id": WEB_BUILD_ID,
-            "capabilities": ["builds", "encounters", "grinding", "comparisons"]
+            "capabilities": ["builds", "grinding", "comparisons"]
         }),
     )
 }
@@ -470,13 +470,30 @@ fn list_items(data: &WebData, query: &str) -> Response {
     let item_type = params.get("type").map(String::as_str).unwrap_or("");
     let slot = params.get("slot").map(String::as_str).unwrap_or("");
     let (offset, limit) = paging(&params);
-    let filtered: Vec<_> = data
+    let mut filtered: Vec<_> = data
         .items
         .iter()
         .filter(|item| matches_search(&item.name, &item.slug, &search))
         .filter(|item| item_type.is_empty() || item.item_type == item_type)
         .filter(|item| slot.is_empty() || item_accepts_web_slot(item, slot))
         .collect();
+    if params
+        .get("sort")
+        .is_some_and(|sort| sort == "required-level-name")
+    {
+        filtered.sort_by(|left, right| {
+            left.requirements
+                .level
+                .unwrap_or(0)
+                .cmp(&right.requirements.level.unwrap_or(0))
+                .then_with(|| {
+                    left.name
+                        .to_ascii_lowercase()
+                        .cmp(&right.name.to_ascii_lowercase())
+                })
+                .then_with(|| left.slug.cmp(&right.slug))
+        });
+    }
     let records = filtered
         .iter()
         .skip(offset)
@@ -592,10 +609,31 @@ fn list_skills(data: &WebData, query: &str) -> Response {
         .filter(|skill| role.is_none_or(|role| skill_supports_role(skill, role)))
         .collect();
     filtered.sort_by(|left, right| {
-        left.name
-            .to_ascii_lowercase()
-            .cmp(&right.name.to_ascii_lowercase())
-            .then_with(|| right.rank.cmp(&left.rank))
+        let level_order = params
+            .get("sort")
+            .is_some_and(|sort| sort == "required-level-name")
+            .then(|| {
+                left.level_requirement
+                    .unwrap_or(0)
+                    .cmp(&right.level_requirement.unwrap_or(0))
+            })
+            .unwrap_or(std::cmp::Ordering::Equal);
+        level_order
+            .then_with(|| {
+                left.name
+                    .to_ascii_lowercase()
+                    .cmp(&right.name.to_ascii_lowercase())
+            })
+            .then_with(|| {
+                if params
+                    .get("sort")
+                    .is_some_and(|sort| sort == "required-level-name")
+                {
+                    left.rank.cmp(&right.rank)
+                } else {
+                    right.rank.cmp(&left.rank)
+                }
+            })
             .then_with(|| left.slug.cmp(&right.slug))
     });
     let records = filtered
@@ -711,12 +749,6 @@ struct BuildRequest {
 }
 
 #[derive(Deserialize)]
-struct EncounterRequest {
-    build: CharacterBuild,
-    assumptions: EncounterAssumptions,
-}
-
-#[derive(Deserialize)]
 struct GrindRequest {
     build: CharacterBuild,
     assumptions: GrindingAssumptions,
@@ -755,33 +787,6 @@ fn inspect_build_api(data: &WebData, body: &[u8]) -> Response {
     };
     let inspection = inspect_build(&build, &data.items, &data.item_sets, &data.skills);
     Response::json(200, json!({ "build": inspection }))
-}
-
-fn encounter_api(data: &WebData, mob_slug: &str, body: &[u8]) -> Response {
-    let mut request: EncounterRequest = match parse_body(body) {
-        Ok(request) => request,
-        Err(response) => return response,
-    };
-    let Some(mob) = data.mobs.iter().find(|mob| mob.slug == mob_slug) else {
-        return Response::json_error(404, "mob not found");
-    };
-    let inspection = inspect_build(&request.build, &data.items, &data.item_sets, &data.skills);
-    if !inspection.is_valid() {
-        return Response::json(
-            422,
-            json!({ "error": "build validation failed", "build": inspection }),
-        );
-    }
-    request
-        .assumptions
-        .apply_build_defense(inspection.level, inspection.confirmed_derived_stats.armor);
-    match estimate_encounter(mob, request.assumptions) {
-        Ok(estimate) => Response::json(
-            200,
-            json!({ "build": inspection, "mob": compact_mob(mob), "encounter": estimate }),
-        ),
-        Err(error) => Response::json_error(422, &error),
-    }
 }
 
 fn grind_api(data: &WebData, mob_slug: &str, body: &[u8]) -> Response {
@@ -931,13 +936,23 @@ mod tests {
         assert_eq!(response.status, 200);
         let value: Value = serde_json::from_slice(&response.body).unwrap();
         assert_eq!(value["items"], 1);
+        assert!(
+            !value["capabilities"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("encounters"))
+        );
+        assert_eq!(
+            route(&data, "POST", "/api/encounter/angry-skele-8", b"{}").status,
+            404
+        );
     }
 
     #[test]
     fn item_search_filters_and_paginates() {
-        let data = data();
+        let initial_data = data();
         let response = route(
-            &data,
+            &initial_data,
             "GET",
             "/api/items?search=toy&type=One-Hand+Sword&slot=main-hand&limit=10",
             &[],
@@ -945,6 +960,33 @@ mod tests {
         let value: Value = serde_json::from_slice(&response.body).unwrap();
         assert_eq!(value["total"], 1);
         assert_eq!(value["records"][0]["slug"], "toy-sword-26");
+
+        let mut data = data();
+        let item_bytes = serde_json::to_vec(&data.items[0]).unwrap();
+        let copy_item = || serde_json::from_slice::<Item>(&item_bytes).unwrap();
+        let mut high_level = copy_item();
+        high_level.name = "Alpha Sword".into();
+        high_level.slug = "alpha-sword".into();
+        high_level.requirements.level = Some(20);
+        let mut low_level_zeta = copy_item();
+        low_level_zeta.name = "Zeta Sword".into();
+        low_level_zeta.slug = "zeta-sword".into();
+        low_level_zeta.requirements.level = Some(5);
+        let mut low_level_alpha = copy_item();
+        low_level_alpha.name = "Beta Sword".into();
+        low_level_alpha.slug = "beta-sword".into();
+        low_level_alpha.requirements.level = Some(5);
+        data.items = vec![high_level, low_level_zeta, low_level_alpha];
+        let response = route(
+            &data,
+            "GET",
+            "/api/items?slot=main-hand&sort=required-level-name&limit=2",
+            &[],
+        );
+        let value: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(value["total"], 3);
+        assert_eq!(value["records"][0]["slug"], "beta-sword");
+        assert_eq!(value["records"][1]["slug"], "zeta-sword");
     }
 
     #[test]
@@ -999,6 +1041,9 @@ mod tests {
             firoc_power,
             ruse,
         ];
+        data.skills[0].level_requirement = Some(40);
+        data.skills[2].level_requirement = Some(10);
+        data.skills[3].level_requirement = Some(10);
         let response = route(
             &data,
             "GET",
@@ -1041,6 +1086,17 @@ mod tests {
             route(&data, "GET", "/api/skills/buff-rank-2", &[]).status,
             200
         );
+
+        let response = route(
+            &data,
+            "GET",
+            "/api/skills?role=buff&sort=required-level-name&limit=2",
+            &[],
+        );
+        let value: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(value["total"], 3);
+        assert_eq!(value["records"][0]["slug"], "firoc-power-297");
+        assert_eq!(value["records"][1]["slug"], "ruse-352");
     }
 
     #[test]

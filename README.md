@@ -4,7 +4,7 @@ A data-backed character-build, combat, and farming calculator for [Fantasy Onlin
 
 **Web app:** https://uiopfish.github.io/fo2-dps/
 
-The calculator can inspect character builds, derive confirmed combat stats, estimate encounters, compare grinding routes, and explore the underlying item, skill, set, mob, drop, and economy data. Unknown mechanics remain explicit instead of being replaced with guessed formulas.
+The calculator can inspect and share character builds, derive confirmed combat stats, compare grinding routes, and explore the underlying item, skill, set, mob, drop, and economy data. Unknown mechanics remain explicit instead of being replaced with guessed formulas.
 
 ## Table of contents
 
@@ -13,7 +13,7 @@ The calculator can inspect character builds, derive confirmed combat stats, esti
 - [Commands](#commands)
 - [Static GitHub Pages deployment](#static-github-pages-deployment)
 - [Character build inspection](#character-build-inspection)
-- [Encounter estimates](#encounter-estimates)
+- [Combat-cycle assumptions](#combat-cycle-assumptions)
 - [Grinding estimates](#grinding-estimates)
 - [Mob snapshots](#mob-snapshots)
 - [Bulk collection](#bulk-collection)
@@ -26,10 +26,10 @@ The calculator can inspect character builds, derive confirmed combat stats, esti
 
 - Browser-based Build Lab with equipment, implant, buff, morph, pet, and skill selection
 - Live build validation and inspectable derived-stat breakdowns
-- Expected-event encounter estimates using the current character build
-- Grinding leaderboards and route comparisons for gold and faction XP per hour
+- Expected-event combat-cycle estimates used by Grinding
+- Grinding leaderboards and route comparisons for gold, pure coin drops, and faction XP per hour
 - Searchable item, mob, skill, and item-set explorer
-- Portable build import/export and browser-local workspace persistence
+- Portable build import/export, self-contained build codes/share URLs, and browser-local workspace persistence
 - Serverless WebAssembly deployment with no hosted API or database
 - Native Rust CLI, local HTTP application, data validation, scraping, and SQLite export tools
 
@@ -50,16 +50,16 @@ The same dependency-free frontend runs through WebAssembly on GitHub Pages or is
 - Mob details backed by the tracked normalized dataset; raw source evidence remains outside the web application
 - Shared, browser-persisted character build workspace
 - Build inspection and validation
-- Encounter calculations
+
 - Single-target grinding estimates
 - Multi-route grinding comparisons
-- Responsive layouts, keyboard-accessible navigation, loading/error states, and reduced-motion support
+- Responsive layouts, persistent desktop-only Yokou Mode, keyboard-accessible navigation, loading/error states, and reduced-motion support
 
-Guided forms are the default workflow: progression and attribute inputs, visual equipment and active-effect slot boards, skill rows with archive-backed suggestions, typed encounter controls, grinding policies, and consumable-cost rows. Fresh builds start at level 1 with 20 base points in every attribute and zero allocated points. Available, assigned, and unassigned allocation points update immediately from the Spawn/Rebirth/Ascension budget formulas. Guided allocation inputs cannot fall below zero or exceed the remaining budget; lowering level or progression trims excess allocations, while negative equipment modifiers may still reduce an inspected final attribute below its base value of 20. Displayed attribute totals start at base 20 plus allocations, then refresh with item/set totals from automatic server inspection. Clicking an equipment, outfit, or implant slot opens a searchable picker restricted to compatible item categories, with requirements and detail links. The six-slot Implants tab appears only for Ascension builds and uses the game's designated Brain, Heart, Left Arm, Right Arm, Left Leg, and Right Leg positions. Implant pickers and build validation enforce the body-part category from each item's typed `implant_slot`, derived from its published description; an implant cannot be equipped into another body-part slot. Build validation is live and debounced: level, progression, allocations, equipment, skills, active roles, imported JSON, and slot changes automatically refresh validation and stat breakdowns without an Inspect button. `sacred-gauntlet-implant-1492` is classified as Left Arm from its published “Implant for your Left Arm.” description, not from its slug. All 68 current implants have exactly one description-backed designated slot. Outfit choices are cosmetic/local and do not enter combat calculations. Advanced JSON panels remain available for exact schema editing and troubleshooting. Character builds can be downloaded or imported as portable JSON files, and all workspaces persist locally in the browser.
+Guided forms are the default workflow: progression and attribute inputs, visual equipment and active-effect slot boards, required-level-sorted item/skill pickers, Grinding-owned combat assumptions, route policies, and consumable-cost rows. Fresh builds start at level 1 with 20 base points in every attribute and zero allocated points. Available, assigned, and unassigned allocation points update immediately from the Spawn/Rebirth/Ascension budget formulas. Guided allocation inputs cannot fall below zero or exceed the remaining budget; lowering level or progression trims excess allocations, while negative equipment modifiers may still reduce an inspected final attribute below its base value of 20. Displayed attribute totals start at base 20 plus allocations, then refresh with item/set totals from automatic server inspection. Clicking an equipment, outfit, or implant slot opens a searchable picker restricted to compatible item categories, with requirements and detail links. The six-slot Implants tab appears only for Ascension builds and uses the game's designated Brain, Heart, Left Arm, Right Arm, Left Leg, and Right Leg positions. Implant pickers and build validation enforce the body-part category from each item's typed `implant_slot`, derived from its published description; an implant cannot be equipped into another body-part slot. Build validation is live and debounced: level, progression, allocations, equipment, skills, active roles, imported JSON, and slot changes automatically refresh validation and stat breakdowns without an Inspect button. `sacred-gauntlet-implant-1492` is classified as Left Arm from its published “Implant for your Left Arm.” description, not from its slug. All 68 current implants have exactly one description-backed designated slot. Outfit choices are cosmetic/local and do not enter combat calculations. Advanced JSON panels remain available for exact schema editing and troubleshooting. Character builds can be downloaded or imported as portable JSON files, encoded into versioned self-contained build codes, or shared through `?build=...#build` URLs; cosmetic outfits remain local. All workspaces and the desktop-only Yokou Mode density preference persist locally in the browser.
 
 The build result is a dedicated character sheet rather than a generic metric sample. It shows confirmed maximum Health and Energy from total post-equipment attributes, raw Armor, Attack Power when final-attribute leadership is unambiguous, basic-attack panel damage, attack interval, bounded two-second out-of-combat Health/Energy Regen candidates, a base/allocated/gear/set/total attribute table, direct modifiers, active set tiers, selected skills, validation errors, and unresolved mechanics. Basic-attack damage per hit uses total Attack Power, the weapon's unbuffed base attack interval, weapon damage, and equipped implant Damage; attack-speed buffs affect attack frequency and DPS without reducing damage per hit. Skill/buff/pet periodic regeneration remains separately effect-defined and always active for the effect duration. The all-source Crit soft cap and piecewise Dodge rule are active; the conflicting level-103 Crit screenshot reading and equipment-regeneration interaction remain documented rather than hidden.
 
-Read-only/list APIs include `/api/summary`, `/api/items`, `/api/mobs`, `/api/skills`, and `/api/item-sets`, with `search`, `offset`, and `limit` query parameters. Calculator APIs are `/api/build/inspect`, `/api/encounter/{mob-slug}`, `/api/grind/{mob-slug}`, `/api/grind/compare`, and `/api/grind/leaderboard`. Requests are limited to 2 MiB. Native startup reads the tracked normalized snapshots, including `data/mobs.json`; it does not load the separate raw mob archive.
+Read-only/list APIs include `/api/summary`, `/api/items`, `/api/mobs`, `/api/skills`, and `/api/item-sets`, with `search`, `offset`, and `limit` query parameters. Calculator APIs are `/api/build/inspect`, `/api/grind/{mob-slug}`, `/api/grind/compare`, and `/api/grind/leaderboard`. Requests are limited to 2 MiB. Native startup reads the tracked normalized snapshots, including `data/mobs.json`; it does not load the separate raw mob archive.
 
 ## Commands
 
@@ -78,7 +78,7 @@ cargo run -- build-db
 cargo run -- build-web-bundle
 cargo run -- assemble-pages
 cargo run -- inspect-build path/to/build.json
-cargo run -- encounter path/to/build.json <mob-slug> path/to/assumptions.json
+
 cargo run -- grind path/to/build.json <mob-slug> path/to/grinding-assumptions.json
 cargo run -- grind-compare path/to/build.json path/to/comparison.json
 cargo run -- serve
@@ -129,9 +129,9 @@ Valid active roles are `buff`, `pet`, and `morph`. The guided Build Lab uses fiv
 
 The output separates `item_stats`, `set_bonus_stats`, `requirement_attributes`, and post-set `final_attributes`. Item attribute requirements are informational because Fantasy Online 2 permits overequipping with temporary stats; level, progression, faction, and guild restrictions remain validated. Locally cast pet and attack-skill attribute requirements use `requirement_attributes`; whether active set bonuses may satisfy them is not confirmed. Indexed slots preserve repeated equipment without inventing maximum ring/implant counts. Exact repeated-slot limits, two-handed/off-hand exclusion, and skill-slot limits are therefore not yet enforced.
 
-## Encounter estimates
+## Combat-cycle assumptions
 
-`encounter` validates a build, resolves one mob from `data/mobs.json`, and produces a transparent analytical estimate. Mechanics that are not confirmed are required as scenario inputs rather than inferred:
+Grinding uses the tested encounter engine internally to resolve combat-cycle duration, survival, and expected damage. The standalone Encounter tab/API/CLI is intentionally not exposed; mechanics that are not confirmed remain explicit Grinding inputs rather than being inferred:
 
 ```json
 {
@@ -152,11 +152,11 @@ The output separates `item_stats`, `set_bonus_stats`, `requirement_attributes`, 
 
 Basic-attack integers are uniformly distributed across the inclusive panel range and mobs do not reduce outgoing player damage, so Build Lab supplies `expected_noncritical_player_hit` as the range midpoint. For incoming attacks, the model uses the midpoint of the published mob-damage range and applies `damage × (200 + level × 50) / ((200 + level × 50) + Armor)`. Dodge then determines the landed probability. `expected_post_mitigation_mob_hit` remains an optional advanced override. Setting `assume_player_survives` to `true` explicitly skips all incoming damage; it is a fallback rather than the default. Energy is optional and uses a scenario-supplied net cost per second.
 
-The web Encounter and Grinding tabs automatically reuse safely derived values from the current Build Lab inspection, including midpoint basic damage, maximum Health, attack interval, Crit, Dodge, level, and Armor. The server and CLI overwrite any client-supplied defense context with the inspected build values. Armor mitigation is bypassed only through the visible survival assumption; active-effect stacking remains an explicit input boundary. Route comparisons apply the same Build Lab-derived values to each target at submission. The model applies the confirmed chained Crit expectation, attack intervals, incoming Dodge probability, and immediate opening player hit. `simultaneous_event_order` must be `player_first` or `mob_first` and explicitly controls equal attack timestamps. It reports expected damage per attack, analytical outgoing/incoming DPS and time to kill, plus an expected-damage event timeline with attack counts, elapsed time, defeat outcome, remaining health, and optional energy sustainability. The timeline resolves expected damage rather than random individual rolls; mob debuffs, skill rotations, healing, regeneration ticks, absorption, movement, latency, and recovery are not modeled.
+The web Grinding tab automatically reuses safely derived values from the current Build Lab inspection, including midpoint basic damage, maximum Health, attack interval, Crit, Dodge, level, and Armor. The server and CLI overwrite any client-supplied defense context with the inspected build values. Armor mitigation is bypassed only through the visible survival assumption; active-effect stacking remains an explicit input boundary. Route comparisons apply the same Build Lab-derived values to each target at submission. The model applies the confirmed chained Crit expectation, attack intervals, incoming Dodge probability, and immediate opening player hit. `simultaneous_event_order` must be `player_first` or `mob_first` and explicitly controls equal attack timestamps. It reports expected damage per attack, analytical outgoing/incoming DPS and time to kill, plus an expected-damage event timeline with attack counts, elapsed time, defeat outcome, remaining health, and optional energy sustainability. The timeline resolves expected damage rather than random individual rolls; mob debuffs, skill rotations, healing, regeneration ticks, absorption, movement, latency, and recovery are not modeled.
 
 ## Grinding estimates
 
-The web Grinding tab opens with an automatic top-50 leaderboard. It evaluates every published drop profile for every eligible mob, keeps each mob's best route, and can rank by gold per hour or faction XP per hour. Mining, unlocking, and wood-cutting targets are excluded using typed required-weapon metadata. The explicit normalized `boss_candidate` boolean is derived solely from the archived source's `achievement-boss-` marker and is used to exclude likely bosses; this classification remains heuristic. The MVP leaderboard explicitly assumes the player survives, uses the current build's basic-attack output, and defaults to zero travel/recovery/respawn time. Leaderboard gold/hour is a known-value subtotal: published coin income plus drops with a known probability and selected price; unknown drop values contribute zero. Detailed single-route estimates retain strict null propagation. Clicking the Gold/h or Faction XP/h table heading reruns the leaderboard using that ordering.
+The web Grinding tab opens with an automatic top-50 leaderboard. It evaluates every published drop profile for every eligible mob, keeps each mob's best route, and can rank by known gold per hour, pure published coin drops per hour, or faction XP per hour. Mining, unlocking, and wood-cutting targets are excluded using typed required-weapon metadata. The explicit normalized `boss_candidate` boolean is derived solely from the archived source's `achievement-boss-` marker and is used to exclude likely bosses; this classification remains heuristic. The MVP leaderboard explicitly assumes the player survives, uses the current build's basic-attack output, and defaults to zero travel/recovery/respawn time. Leaderboard gold/hour is a known-value subtotal: published coin income plus drops with a known probability and selected price; unknown drop values contribute zero. Detailed single-route estimates retain strict null propagation. Clicking the Gold/h, Pure coins/h, or Faction XP/h table heading reruns the leaderboard using that ordering.
 
 `grind` extends an encounter scenario with one location-specific drop profile and explicit cycle/economy policies:
 

@@ -1,6 +1,6 @@
 "use strict";
 
-const EXPECTED_WEB_BUILD_ID = "2026-10-02-normalized-mobs-v28";
+const EXPECTED_WEB_BUILD_ID = "2026-10-03-grinding-share-v29";
 const STATIC_RUNTIME = document.documentElement.dataset.runtime === "static";
 let staticRuntimePromise = null;
 
@@ -15,17 +15,7 @@ const EXAMPLES = {
     faction_notoriety: null,
     guild_level: null
   },
-  encounter: {
-    assume_player_survives: false,
-    simultaneous_event_order: "player_first",
-    expected_noncritical_player_hit: null,
-    player_crit_percent: null,
-    player_attack_interval_seconds: null,
-    player_max_health: null,
-    player_dodge_percent: null,
-    expected_post_mitigation_mob_hit: null,
-    energy: null
-  },
+
   grind: {
     encounter: {
       assume_player_survives: false,
@@ -94,6 +84,8 @@ const pretty = value => JSON.stringify(value, null, 2);
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 const humanize = value => String(value).replace(/[_-]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
 const storageKey = name => `fo2-dps:${name}`;
+const BUILD_CODE_VERSION = 1;
+const MAX_BUILD_CODE_LENGTH = 65_536;
 
 function readStored(name, fallback) {
   try { return localStorage.getItem(storageKey(name)) || pretty(fallback); }
@@ -102,6 +94,57 @@ function readStored(name, fallback) {
 
 function store(name, value) {
   try { localStorage.setItem(storageKey(name), value); } catch { /* Storage can be disabled. */ }
+}
+
+function encodeBuildCode(build) {
+  const bytes = new TextEncoder().encode(JSON.stringify({ v: BUILD_CODE_VERSION, build }));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
+}
+
+function decodeBuildCode(code) {
+  const compact = String(code || "").trim();
+  if (!compact || compact.length > MAX_BUILD_CODE_LENGTH) throw new Error("Build code is empty or too large");
+  const base64 = compact.replaceAll("-", "+").replaceAll("_", "/");
+  const binary = atob(base64 + "=".repeat((4 - base64.length % 4) % 4));
+  const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0))));
+  if (!payload || payload.v !== BUILD_CODE_VERSION || typeof payload.build !== "object" || Array.isArray(payload.build)) {
+    throw new Error("Unsupported or invalid build code");
+  }
+  return migrateBuild(payload.build);
+}
+
+function shareUrlForBuild(build) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("build", encodeBuildCode(build));
+  url.hash = "build";
+  return url.toString();
+}
+
+async function copyText(value, fallbackField) {
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    fallbackField.value = value;
+    fallbackField.select();
+    if (!document.execCommand("copy")) throw new Error("Clipboard access is unavailable");
+  }
+}
+
+function applyYokouMode(enabled, persist = true) {
+  if (enabled) document.documentElement.dataset.yokouMode = "true";
+  else delete document.documentElement.dataset.yokouMode;
+  const toggle = $("#yokou-mode");
+  if (toggle) toggle.checked = enabled;
+  if (persist) store("yokou-mode", String(enabled));
+}
+
+function initYokouMode() {
+  const toggle = $("#yokou-mode");
+  if (!toggle) return;
+  applyYokouMode(document.documentElement.dataset.yokouMode === "true", false);
+  toggle.addEventListener("input", () => applyYokouMode(toggle.checked));
 }
 
 function applyTheme(theme, persist = true) {
@@ -147,7 +190,7 @@ function saveGrindingPreferences() {
 function restoreGrindingPreferences() {
   const preferences = readGrindingPreferences();
   const values = [
-    ["#grind-leaderboard-metric", preferences.metric, ["expected_net_value_per_hour", "faction_xp_per_hour"]],
+    ["#grind-leaderboard-metric", preferences.metric, ["expected_net_value_per_hour", "expected_coins_per_hour", "faction_xp_per_hour"]],
     ["#grind-leaderboard-max-clicks", preferences.maximumLootClicks],
     ["#grind-leaderboard-travel", preferences.travel],
     ["#grind-leaderboard-recovery", preferences.recovery],
@@ -889,7 +932,6 @@ function applyBuildStatsToScenarios() {
     ? "Incoming damage skipped."
     : "Incoming damage derived from mob damage, level, and Armor.";
   $("#scenario-build-sync").innerHTML = `<strong>Using current Build Lab:</strong> ${escapeHtml(inherited.join(", ") || "no combat values can be safely derived")}. <strong>Enter:</strong> ${escapeHtml(required.join(", ") || "no additional combat values")}. ${escapeHtml(incomingPolicy)}`;
-  syncEncounterFromGuided();
   syncGrindFromGuided();
 }
 
@@ -937,12 +979,6 @@ function missingScenarioInputs() {
   }).map(([, label]) => label);
 }
 
-function syncEncounterFromGuided() {
-  const textarea = $("#encounter-json");
-  textarea.value = pretty(encounterFromGuided());
-  store("encounter", textarea.value);
-  validateTextarea(textarea, $("#encounter-validity"));
-}
 
 function renderConsumableRows(consumables = []) {
   const region = $("#consumable-rows");
@@ -1021,18 +1057,22 @@ function renderGrindingLeaderboard(container, data) {
   const rows = leaderboard?.rows || [];
   const metric = leaderboard?.ranking_metric;
   const faction = leaderboard?.faction_filter;
-  const metricLabel = metric === "faction_xp_per_hour" ? "Faction XP/hour" : "Gold/hour";
+  const metricLabel = ({
+    expected_net_value_per_hour: "Gold/hour",
+    expected_coins_per_hour: "Pure coin drops/hour",
+    faction_xp_per_hour: "Faction XP/hour"
+  })[metric] || humanize(metric);
   const scopeLabel = faction ? `${faction} · ${metricLabel}` : metricLabel;
   const heading = faction ? `Top ${faction} grinding targets` : "Top grinding targets";
   const noRowsReason = `Of ${formatValue(leaderboard?.evaluated_mob_count || 0)} candidate mobs, ${formatValue(leaderboard?.excluded_resource_mob_count || 0)} resource targets and ${formatValue(leaderboard?.excluded_boss_candidate_count || 0)} boss candidates were excluded; ${formatValue(leaderboard?.failed_route_count || 0)} routes failed estimation, ${formatValue(leaderboard?.unrankable_route_count || 0)} lacked the selected metric, and ${formatValue(leaderboard?.click_filtered_route_count || 0)} exceeded the loot-click limit.`;
   container.innerHTML = `<div class="leaderboard-result">
     <div class="result-header"><div><p class="eyebrow">${escapeHtml(scopeLabel)} ranking</p><h2>${escapeHtml(heading)}</h2><p>${formatValue(leaderboard?.ranked_mob_count || 0)} rankable of ${formatValue(leaderboard?.evaluated_mob_count || 0)} ${faction ? `${escapeHtml(faction)} ` : ""}mobs · showing ${formatValue(rows.length)} · ${formatValue(leaderboard?.excluded_resource_mob_count || 0)} resources and ${formatValue(leaderboard?.excluded_boss_candidate_count || 0)} boss candidates excluded</p></div></div>
-    ${rows.length ? `<div class="table-wrap"><table class="stat-table grinding-table"><thead><tr><th>#</th><th>Mob</th><th>Level</th><th>Best location</th><th><button type="button" data-rank-metric="expected_net_value_per_hour">Gold/h</button></th><th>Faction</th><th>XP/kill</th><th><button type="button" data-rank-metric="faction_xp_per_hour">Faction XP/h</button></th><th>Kills/h</th><th>Loot clicks/h</th></tr></thead><tbody>${rows.map(row => {
+    ${rows.length ? `<div class="table-wrap"><table class="stat-table grinding-table"><thead><tr><th>#</th><th>Mob</th><th>Level</th><th>Best location</th><th><button type="button" data-rank-metric="expected_net_value_per_hour">Gold/h</button></th><th><button type="button" data-rank-metric="expected_coins_per_hour">Pure coins/h</button></th><th>Faction</th><th>XP/kill</th><th><button type="button" data-rank-metric="faction_xp_per_hour">Faction XP/h</button></th><th>Kills/h</th><th>Loot clicks/h</th></tr></thead><tbody>${rows.map(row => {
       const estimate = row.estimate || {};
       const goldPerHour = row.known_gold_per_hour;
-      return `<tr><td><strong>${formatValue(row.rank)}</strong></td><th><button type="button" class="table-link" data-grind-row="${escapeHtml(row.rank - 1)}">${escapeHtml(row.mob_name)}</button></th><td>${formatValue(row.mob_level)}</td><td>${escapeHtml(estimate.zone || estimate.profile_summary || "—")}</td><td class="money-cell">${formatValue(goldPerHour)}</td><td>${escapeHtml(estimate.mob_faction_label || "—")}</td><td>${formatValue(estimate.faction_xp_per_kill)}</td><td>${formatValue(estimate.expected_faction_xp_per_hour)}</td><td>${formatValue(estimate.kills_per_hour)}${estimate.spawn_cap_applied ? '<small class="spawn-cap-label">Spawn-capped</small>' : ""}</td><td>${formatValue(estimate.expected_loot_clicks_per_hour)}</td></tr>`;
+      return `<tr><td><strong>${formatValue(row.rank)}</strong></td><th><button type="button" class="table-link" data-grind-row="${escapeHtml(row.rank - 1)}">${escapeHtml(row.mob_name)}</button></th><td>${formatValue(row.mob_level)}</td><td>${escapeHtml(estimate.zone || estimate.profile_summary || "—")}</td><td class="money-cell">${formatValue(goldPerHour)}</td><td class="money-cell">${formatValue(estimate.coins?.expected_per_hour)}</td><td>${escapeHtml(estimate.mob_faction_label || "—")}</td><td>${formatValue(estimate.faction_xp_per_kill)}</td><td>${formatValue(estimate.expected_faction_xp_per_hour)}</td><td>${formatValue(estimate.kills_per_hour)}${estimate.spawn_cap_applied ? '<small class="spawn-cap-label">Spawn-capped</small>' : ""}</td><td>${formatValue(estimate.expected_loot_clicks_per_hour)}</td></tr>`;
     }).join("")}</tbody></table></div>` : `<div class="result-error"><h2>No rankable mobs</h2><p>${escapeHtml(noRowsReason)}</p></div>`}
-    <section class="result-section"><h3>MVP model</h3><ul class="note-list"><li>${faction ? `Only mobs belonging to ${escapeHtml(faction)} are evaluated.` : "No faction filter is applied."} Each mob's drop profiles are evaluated; only its highest-ranked route is shown.</li><li>An opening one-shot resets the attack interval immediately. With zero route overhead, its finite rate is published map spawns × 120 kills/hour.</li><li>Each successful independent roll means one item and one loot click.</li><li>The spawn cap is optional for positive-duration routes and automatic for a zero-second one-shot cycle.</li><li>Mining, unlocking, and wood-cutting targets are excluded. Boss candidates are excluded because their 30-minute respawn is outside sustained grinding.</li><li>Gold/hour uses shop value only. Unknown shop values contribute zero to the ranking subtotal while remaining visibly unknown in the route breakdown.</li></ul></section>
+    <section class="result-section"><h3>MVP model</h3><ul class="note-list"><li>${faction ? `Only mobs belonging to ${escapeHtml(faction)} are evaluated.` : "No faction filter is applied."} Each mob's drop profiles are evaluated; only its highest-ranked route is shown.</li><li>An opening one-shot resets the attack interval immediately. With zero route overhead, its finite rate is published map spawns × 120 kills/hour.</li><li>Each successful independent roll means one item and one loot click.</li><li>The spawn cap is optional for positive-duration routes and automatic for a zero-second one-shot cycle.</li><li>Mining, unlocking, and wood-cutting targets are excluded. Boss candidates are excluded because their 30-minute respawn is outside sustained grinding.</li><li>Gold/hour combines published coins with known shop-valued item drops; unknown shop values contribute zero. Pure coin drops/hour uses only the midpoint of the published solo coin range and excludes item loot.</li></ul></section>
     <details class="raw-result"><summary>View raw leaderboard JSON</summary><pre>${escapeHtml(pretty(data))}</pre></details>
   </div>`;
   $$('[data-grind-row]', container).forEach(button => button.addEventListener("click", () => openGrindingBreakdown(rows[Number(button.dataset.grindRow)])));
@@ -1241,14 +1281,14 @@ async function loadPickerItems() {
   state.pickerController = controller;
   const timeout = setTimeout(() => controller.abort(), 10_000);
   region.innerHTML = loadingMarkup(`Searching ${context.label.toLowerCase()} items…`);
-  const params = new URLSearchParams({ slot: context.slot, search: $("#picker-search").value.trim(), limit: 100 });
+  const params = new URLSearchParams({ slot: context.slot, search: $("#picker-search").value.trim(), sort: "required-level-name", limit: 100 });
   try {
     const data = await api(`/api/items?${params}`, { signal: controller.signal });
     if (requestId !== state.pickerRequestId || state.picker !== context) return;
     $("#picker-count").textContent = `${Number(data.total || 0).toLocaleString()} matching items`;
     const selected = currentPickerSelection();
     const unequip = selected ? `<button class="picker-unequip" type="button" data-unequip>Unequip current item</button>` : "";
-    region.innerHTML = unequip + (data.records || []).map(item => `<article class="picker-item ${selected?.item_slug === item.slug || selected?.slug === item.slug ? "selected" : ""}">
+    region.innerHTML = unequip + (data.records || []).map(item => `<article class="picker-item ${selected?.item_slug === item.slug || selected?.slug === item.slug ? "selected" : ""}" data-required-level="${Number(item.level_requirement || 0)}" data-display-name="${escapeHtml(item.name.toLocaleLowerCase())}">
       <button class="picker-select" type="button" data-pick="${escapeHtml(item.slug)}" data-tooltip-kind="item" data-tooltip-slug="${escapeHtml(item.slug)}">
         <span class="picker-icon" aria-hidden="true">${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="">` : escapeHtml((item.name?.[0] || "◆").toUpperCase())}</span>
         <span class="picker-copy"><strong>${escapeHtml(item.name)}</strong>${item.description ? `<small class="picker-description">${escapeHtml(item.description)}</small>` : ""}<small>${escapeHtml(item.item_type)}</small><small>${escapeHtml(requirementText(item))}</small></span>
@@ -1279,7 +1319,7 @@ async function loadPickerSkills() {
   state.skillPickerController = controller;
   const timeout = setTimeout(() => controller.abort(), 10_000);
   region.innerHTML = loadingMarkup(`Searching ${context.role} skills…`);
-  const params = new URLSearchParams({ role: context.role, search: $("#skill-picker-search").value.trim(), limit: 100 });
+  const params = new URLSearchParams({ role: context.role, search: $("#skill-picker-search").value.trim(), sort: "required-level-name", limit: 100 });
   try {
     const data = await api(`/api/skills?${params}`, { signal: controller.signal });
     if (requestId !== state.skillPickerRequestId || state.skillPicker !== context) return;
@@ -1291,7 +1331,7 @@ async function loadPickerSkills() {
     region.innerHTML = unequip + (data.records || []).map(skill => {
       const usedElsewhere = activeSlugs.has(skill.slug) && selected?.skill_slug !== skill.slug;
       const rank = skill.rank == null ? "Rank unknown" : `Rank ${skill.rank}`;
-      return `<article class="picker-item ${selected?.skill_slug === skill.slug ? "selected" : ""}" data-tooltip-kind="skill" data-tooltip-slug="${escapeHtml(skill.slug)}">
+      return `<article class="picker-item ${selected?.skill_slug === skill.slug ? "selected" : ""}" data-required-level="${Number(skill.level_requirement || 0)}" data-display-name="${escapeHtml(skill.name.toLocaleLowerCase())}" data-tooltip-kind="skill" data-tooltip-slug="${escapeHtml(skill.slug)}">
         <button class="picker-select" type="button" data-pick-skill="${escapeHtml(skill.slug)}" data-tooltip-kind="skill" data-tooltip-slug="${escapeHtml(skill.slug)}" ${usedElsewhere ? "disabled" : ""}>
           <span class="picker-icon" aria-hidden="true">${skill.image_url ? `<img src="${escapeHtml(skill.image_url)}" alt="">` : escapeHtml((skill.name?.[0] || "◆").toUpperCase())}</span>
           <span class="picker-copy"><strong>${escapeHtml(skill.name)} <span class="picker-rank">${escapeHtml(rank)}</span></strong><small>${escapeHtml((skill.effect_types || []).join(" · ") || humanize(context.role))}</small><small>${skill.level_requirement ? `Requires level ${escapeHtml(skill.level_requirement)}` : "No level requirement"}</small>${usedElsewhere ? "<small>Already active in another slot</small>" : ""}</span>
@@ -1360,7 +1400,7 @@ async function loadSuggestions(type, search, datalistSelector) {
 
 function initEditors() {
   const fields = {
-    build: [$("#build-json"), $("#build-validity")], encounter: [$("#encounter-json"), $("#encounter-validity")],
+    build: [$("#build-json"), $("#build-validity")],
     grind: [$("#grind-json"), $("#grind-validity")], compare: [$("#compare-json"), $("#grind-validity")]
   };
   try { state.outfit = JSON.parse(localStorage.getItem(storageKey("outfit")) || "{}"); } catch { state.outfit = {}; }
@@ -1368,11 +1408,28 @@ function initEditors() {
     textarea.value = readStored(name, EXAMPLES[name]);
     textarea.addEventListener("input", () => { store(name, textarea.value); validateTextarea(textarea, output); });
   });
-  applyBuildToGuided(safeJson(fields.build[0], EXAMPLES.build));
-  applyEncounterToGuided(safeJson(fields.encounter[0], EXAMPLES.encounter));
-  applyGrindToGuided(safeJson(fields.grind[0], EXAMPLES.grind));
+  const sharedCode = new URL(window.location.href).searchParams.get("build");
+  let initialBuild = safeJson(fields.build[0], EXAMPLES.build);
+  if (sharedCode) {
+    try {
+      initialBuild = decodeBuildCode(sharedCode);
+      fields.build[0].value = pretty(initialBuild);
+      $("#build-code").value = sharedCode;
+      $("#build-code-status").textContent = "Loaded build from shared URL.";
+    } catch {
+      $("#build-code-status").textContent = "The shared build code is invalid; your saved build was kept.";
+    }
+  }
+  const grindValue = safeJson(fields.grind[0], EXAMPLES.grind);
+  if (!grindValue.encounter) {
+    try { grindValue.encounter = JSON.parse(localStorage.getItem(storageKey("encounter")) || "null"); }
+    catch { /* Ignore malformed legacy encounter storage. */ }
+  }
+  applyBuildToGuided(initialBuild);
+  applyEncounterToGuided(grindValue.encounter || EXAMPLES.grind.encounter);
+  applyGrindToGuided(grindValue);
   restoreGrindingPreferences();
-  validateTextarea(...fields.build); validateTextarea(...fields.encounter); validateTextarea(...fields.grind);
+  validateTextarea(...fields.build); validateTextarea(...fields.grind);
 
   $("#build-level").addEventListener("input", () => syncBuildFromGuided());
   for (const attribute of ALLOCATED_ATTRIBUTES) {
@@ -1380,7 +1437,7 @@ function initEditors() {
   }
   $("#build-progression").addEventListener("input", () => { syncBuildFromGuided(); applyBuildToGuided(buildFromGuided()); });
   $$('[data-loadout-tab]').forEach(button => button.addEventListener("click", () => setLoadoutTab(button.dataset.loadoutTab)));
-  ["#enc-order", "#enc-assume-survival", "#enc-hit", "#enc-speed", "#enc-crit", "#enc-dodge", "#enc-health", "#enc-mob-hit", "#enc-energy", "#enc-energy-rate"].forEach(selector => $(selector).addEventListener("input", () => { syncEncounterFromGuided(); syncGrindFromGuided(); }));
+  ["#enc-order", "#enc-assume-survival", "#enc-hit", "#enc-speed", "#enc-crit", "#enc-dodge", "#enc-health", "#enc-mob-hit", "#enc-energy", "#enc-energy-rate"].forEach(selector => $(selector).addEventListener("input", syncGrindFromGuided));
   $("#enc-assume-survival").addEventListener("input", applyBuildStatsToScenarios);
   ["#grind-profile", "#grind-travel", "#grind-recovery", "#grind-respawn", "#grind-price", "#grind-threshold"].forEach(selector => $(selector).addEventListener("input", syncGrindFromGuided));
   ["#grind-leaderboard-metric", "#grind-leaderboard-faction", "#grind-leaderboard-spawn-cap", "#grind-leaderboard-max-clicks", "#grind-leaderboard-travel", "#grind-leaderboard-recovery", "#grind-leaderboard-respawn"].forEach(selector => $(selector).addEventListener("input", saveGrindingPreferences));
@@ -1392,6 +1449,38 @@ function initEditors() {
     const link = document.createElement("a"); link.href = url; link.download = `fo2-build-level-${$("#build-level").value}.json`; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 0); toast("Build JSON downloaded");
   });
+  $("#copy-build-code").addEventListener("click", async () => {
+    const code = encodeBuildCode(buildFromGuided());
+    $("#build-code").value = code;
+    try {
+      await copyText(code, $("#build-code"));
+      $("#build-code-status").textContent = "Build code copied.";
+    } catch (error) {
+      $("#build-code-status").textContent = `Build code ready; ${error.message}`;
+    }
+  });
+  $("#copy-share-url").addEventListener("click", async () => {
+    const url = shareUrlForBuild(buildFromGuided());
+    $("#build-code").value = new URL(url).searchParams.get("build");
+    try {
+      await copyText(url, $("#build-code"));
+      $("#build-code-status").textContent = "Share URL copied.";
+    } catch (error) {
+      $("#build-code-status").textContent = `Share URL ready; ${error.message}`;
+    }
+  });
+  $("#load-build-code").addEventListener("click", () => {
+    try {
+      const build = decodeBuildCode($("#build-code").value);
+      fields.build[0].value = pretty(build);
+      applyBuildToGuided(build);
+      syncBuildFromGuided();
+      $("#build-code-status").textContent = "Build code loaded.";
+      toast("Shared build loaded");
+    } catch (error) {
+      $("#build-code-status").textContent = error.message;
+    }
+  });
   $("#import-build").addEventListener("change", async event => {
     const file = event.target.files?.[0]; if (!file) return;
     try {
@@ -1400,28 +1489,20 @@ function initEditors() {
     event.target.value = "";
   });
   fields.build[0].addEventListener("blur", () => { try { applyBuildToGuided(parseJson(fields.build[0], "Build")); syncBuildFromGuided(); } catch {} });
-  fields.encounter[0].addEventListener("blur", () => { try { applyEncounterToGuided(parseJson(fields.encounter[0], "Encounter")); applyBuildStatsToScenarios(); } catch {} });
+
   fields.grind[0].addEventListener("blur", () => { try { const value = parseJson(fields.grind[0], "Grinding"); applyGrindToGuided(value); if (value.encounter) applyEncounterToGuided(value.encounter); applyBuildStatsToScenarios(); } catch {} });
-  ["#encounter-mob", "#grind-mob"].forEach(selector => $(selector).addEventListener("input", debounce(event => loadSuggestions("mobs", event.target.value, "#mob-slugs"), 200)));
+  $("#grind-mob").addEventListener("input", debounce(event => loadSuggestions("mobs", event.target.value, "#mob-slugs"), 200));
 
   $$('[data-reset]').forEach(button => button.addEventListener("click", () => {
     const name = button.dataset.reset; const [textarea, output] = fields[name];
     textarea.value = pretty(EXAMPLES[name]); store(name, textarea.value); validateTextarea(textarea, output);
     if (name === "build") applyBuildToGuided(EXAMPLES.build);
-    if (name === "encounter") { applyEncounterToGuided(EXAMPLES.encounter); applyBuildStatsToScenarios(); }
-    if (name === "grind") { applyGrindToGuided(EXAMPLES.grind); applyBuildStatsToScenarios(); }
+    if (name === "grind") { applyEncounterToGuided(EXAMPLES.grind.encounter); applyGrindToGuided(EXAMPLES.grind); applyBuildStatsToScenarios(); }
     textarea.focus(); toast(`${humanize(name)} example restored`);
   }));
 
   $("#build-form").addEventListener("submit", event => { event.preventDefault(); syncBuildFromGuided(); });
-  $("#encounter-form").addEventListener("submit", event => {
-    event.preventDefault(); const mob = $("#encounter-mob").value.trim(); const result = $("#encounter-result");
-    if (!mob) { result.innerHTML = errorMarkup("Enter a mob slug before running the encounter.", "Mob required"); return; }
-    syncBuildFromGuided(); syncEncounterFromGuided();
-    const missing = missingScenarioInputs();
-    if (missing.length) { result.innerHTML = errorMarkup(`Enter ${missing.join(", ")} from the in-game panel or resolve it in Build Lab.`, "Combat assumptions required"); return; }
-    runPost({ button: $('button[type="submit"]', event.currentTarget), result, path: `/api/encounter/${encodeURIComponent(mob)}`, body: () => ({ build: buildFromGuided(), assumptions: encounterFromGuided() }), loading: "Resolving combat timeline…", title: "Encounter result" });
-  });
+
   scheduleBuildInspection();
 
   $("#grind-form").addEventListener("submit", event => {
@@ -1513,6 +1594,7 @@ function initDialog() {
 
 function init() {
   initThemeSwitcher();
+  initYokouMode();
   initTabs();
   initExplorer();
   initEditors();

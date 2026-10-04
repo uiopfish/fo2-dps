@@ -12,7 +12,7 @@ These notes were implemented on 2026-09-17 and moved into the canonical behavior
 - Buff and morph attribute requirements are exempt for receiving builds because those effects may be supplied by another player.
 - Pet and attack-skill attribute requirements remain enforced because the player casts them locally.
 - Item attribute requirements are informational during saved-build validation because temporary stats and equipment swaps permit overequipping. Published level, progression, faction, and guild restrictions remain enforced.
-- Encounter and Grinding reuse safely derived values from the current Build Lab inspection. Unknown or out-of-domain mechanics remain explicit inputs, and route comparisons receive the same derived build values at submission.
+- Grinding reuses safely derived values from the current Build Lab inspection through its internal combat-cycle engine. Unknown or out-of-domain mechanics remain explicit inputs, and route comparisons receive the same derived build values at submission.
 - Grinding uses one item and one loot click per successful independent roll. Expected clicks/hour is available in leaderboard results, with an optional maximum-click filter.
 - Grinding leaderboard item valuation is shop-only. Repeated farming would oversaturate the small market for non-consumable drops, so observed market sales are not treated as sustainable gold income. Explicit single-route and CLI scenarios may still inspect other price observations.
 - Mining, unlocking, and wood-cutting resource targets are excluded from the leaderboard using typed required-weapon metadata.

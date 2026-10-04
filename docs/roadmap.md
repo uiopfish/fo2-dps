@@ -92,15 +92,15 @@ Outputs should include:
 
 Use analytical estimates as checks for an eventual discrete-event simulation.
 
-Deliverable: a tested CLI encounter calculation with transparent inputs and assumptions.
+Deliverable: a tested combat-cycle engine with transparent inputs and assumptions for Grinding.
 
-Current status: `src/encounter.rs` provides tested analytical and expected-event basic-attack estimates. `fo2-dps encounter <build.json> <mob-slug> <assumptions.json>` validates the loadout, resolves the authoritative mob record, and prints source context, assumptions, analytical checks, and a timestamp-ordered expected-damage timeline. Build Lab derives expected noncritical basic-attack damage, Crit, attack interval, maximum Health, Dodge, and Armor; the web flow applies those values automatically. Mob damage uses the published midpoint and confirmed level/Armor mitigation unless an explicit post-mitigation override is supplied. The model applies chained Crit expectation, incoming Dodge, the opening player hit, and explicit simultaneous-event order. Outputs include attack counts, elapsed time, defeat outcome, remaining health, outgoing/incoming DPS, and expected health loss.
+Current status: `src/encounter.rs` provides tested analytical and expected-event basic-attack estimates as the internal combat-cycle engine for Grinding. Build Lab derives expected noncritical basic-attack damage, Crit, attack interval, maximum Health, Dodge, and Armor; the Grinding web flow and CLI apply those values automatically. Mob damage uses the published midpoint and confirmed level/Armor mitigation unless an explicit post-mitigation override is supplied. The model applies chained Crit expectation, incoming Dodge, the opening player hit, and explicit simultaneous-event order. Outputs include attack counts, elapsed time, defeat outcome, remaining health, outgoing/incoming DPS, and expected health loss.
 
 The initial Phase 5 deliverable is complete. This is not a random-roll simulator: it advances expected damage at discrete timestamps. Build recommendations model active Energy ticks as a long-run expected rate, but exact skill rotations and timestamped periodic Health/Energy ticks are not yet part of encounters. Mob debuffs, absorption, movement, latency, and scenario ranges remain later refinements.
 
 ## 6. Grinding and economy comparisons — initial milestone complete
 
-After encounter calculations are trustworthy, add:
+Using the tested combat-cycle calculations, add:
 
 - Kills/hour with recovery, travel, and spawn assumptions
 - Expected coins and item quantities per kill
@@ -124,12 +124,12 @@ Initial deliverables:
 
 - Search and inspect items, mobs, skills, and item sets
 - Create and validate character builds
-- Run encounter and grinding scenarios
+- Run grinding scenarios with explicit combat assumptions
 - Compare grinding targets
 - Preserve calculator inputs locally and show raw assumptions/results
 - Accessible desktop and mobile interaction
 
-Current status: `src/web.rs` implements a dependency-free local HTTP server with embedded frontend assets and bounded request bodies. Compact APIs expose items, mobs, merged skills, sets, factions, build inspection, encounters, and grinding calculations. The responsive frontend provides searchable data exploration; artwork-backed equipment, buff/morph, and pet pickers with top-layer tooltips; a visual equipment/implant/outfit board; live build validation; active-set summaries; confirmed derived stats; in-combat Energy regeneration; and top-three castable attack-skill recommendations with burst/sustained DPS. Encounter and Grinding reuse the current Build Lab automatically. Grinding supports faction-scoped rankings, shop-only sustainable gold valuation, detailed coin/item/shop handling breakdowns, saved preferences, attack-reset-aware one-shot cycles, optional loot-click limits, and published spawn-throughput caps that are automatic for zero-second cycles and optional otherwise. Inputs persist locally, advanced JSON remains available for inspection/import/export, and frontend/backend build IDs detect stale running servers. Launch the native app with `fo2-dps serve [address]`; the safe default is `127.0.0.1:8787`. A serverless GitHub Pages build is also implemented: the calculator core compiles to WebAssembly, the existing route contracts dispatch in-browser, and `build-web-bundle` combines the normalized snapshots without destructively compacting mobs. The current schema-v2 bundle is about 4.17 MiB, and Pages never ships the separate raw mob archive. `scripts/build-pages.sh` assembles the no-billing `dist/` artifact, while `.github/workflows/pages.yml` validates and deploys it through GitHub Pages.
+Current status: `src/web.rs` implements a dependency-free local HTTP server with embedded frontend assets and bounded request bodies. Compact APIs expose items, mobs, merged skills, sets, factions, build inspection, and grinding calculations. The responsive frontend provides searchable data exploration; artwork-backed equipment, buff/morph, and pet pickers with top-layer tooltips; a visual equipment/implant/outfit board; live build validation; active-set summaries; confirmed derived stats; in-combat Energy regeneration; and top-three castable attack-skill recommendations with burst/sustained DPS. Grinding reuses the current Build Lab automatically and owns the explicit combat-assumption controls. It supports faction-scoped rankings by known gold, pure coin drops, or faction XP; shop-only sustainable item valuation; detailed coin/item/shop handling breakdowns; saved preferences; attack-reset-aware one-shot cycles; optional loot-click limits; and published spawn-throughput caps that are automatic for zero-second cycles and optional otherwise. Inputs persist locally, item/skill pickers sort by required level then name, advanced JSON remains available for inspection/import/export, versioned build codes and URL sharing require no server, desktop Yokou Mode provides a persistent compact layout, and frontend/backend build IDs detect stale running servers. Launch the native app with `fo2-dps serve [address]`; the safe default is `127.0.0.1:8787`. A serverless GitHub Pages build is also implemented: the calculator core compiles to WebAssembly, the existing route contracts dispatch in-browser, and `build-web-bundle` combines the normalized snapshots without destructively compacting mobs. The current schema-v2 bundle is about 4.17 MiB, and Pages never ships the separate raw mob archive. `scripts/build-pages.sh` assembles the no-billing `dist/` artifact, while `.github/workflows/pages.yml` validates and deploys it through GitHub Pages.
 
 Next priorities:
 
