@@ -697,6 +697,7 @@ function resultTitle(data, fallback) {
 }
 
 function renderResult(container, data, title) {
+  container.classList.remove("result-placeholder");
   const metrics = selectMetrics(data);
   const notes = Array.isArray(data?.notes) ? data.notes : Array.isArray(data?.encounter?.notes) ? data.encounter.notes : [];
   const errors = Array.isArray(data?.errors) ? data.errors : [];
@@ -711,6 +712,7 @@ function renderResult(container, data, title) {
 }
 
 function renderBuildSheet(container, data) {
+  container.classList.remove("result-placeholder");
   const inspection = data.build;
   renderActiveSetSummary(inspection.active_set_tiers || []);
   const build = buildFromGuided();
@@ -767,6 +769,7 @@ function errorMarkup(error, heading = "Request failed") { return `<div class="re
 
 async function runPost({ form, button, result, path, body, loading, title, renderer = renderResult }) {
   button.disabled = true;
+  result.classList.remove("result-placeholder");
   result.innerHTML = loadingMarkup(loading);
   try {
     const data = await api(path, { method: "POST", body: JSON.stringify(body()) });
@@ -800,6 +803,7 @@ async function inspectBuildLive() {
   } catch (error) {
     status.textContent = "Validation unavailable";
     status.parentElement.classList.add("invalid");
+    result.classList.remove("result-placeholder");
     result.innerHTML = errorMarkup(error, "Could not validate build");
   }
 }

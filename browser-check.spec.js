@@ -27,12 +27,30 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
 
   await page.locator("#tab-build").click();
   await expect(page.locator("#build-live-status")).toContainText(/Build valid|Valid/, { timeout: 30000 });
+  await expect(page.locator("#build-result")).not.toHaveClass(/result-placeholder/);
+  const visibleLoadoutTabs = page.locator(".loadout-tabs button:visible");
+  const loadoutTabsBox = await page.locator(".loadout-tabs").boundingBox();
+  const lastVisibleTabBox = await visibleLoadoutTabs.last().boundingBox();
+  expect(Math.abs(lastVisibleTabBox.x + lastVisibleTabBox.width - loadoutTabsBox.x - loadoutTabsBox.width)).toBeLessThan(2);
 
   const normalSlotHeight = (await page.locator('[data-slot="face"]').boundingBox()).height;
+  const normalBoardHeight = (await page.locator("#loadout-equipment").boundingBox()).height;
+  const normalFormHeight = (await page.locator("#build-form").boundingBox()).height;
   await page.locator(".yokou-toggle").click();
   await expect(page.locator("#yokou-mode")).toBeChecked();
   await expect(page.locator("html")).toHaveAttribute("data-yokou-mode", "true");
-  expect((await page.locator('[data-slot="face"]').boundingBox()).height).toBeLessThan(normalSlotHeight);
+  const compactSlotHeight = (await page.locator('[data-slot="face"]').boundingBox()).height;
+  const compactBoardHeight = (await page.locator("#loadout-equipment").boundingBox()).height;
+  const compactFormHeight = (await page.locator("#build-form").boundingBox()).height;
+  expect(compactSlotHeight).toBeLessThan(normalSlotHeight);
+  expect(compactBoardHeight).toBeLessThan(normalBoardHeight * 0.55);
+  expect(compactFormHeight).toBeLessThan(normalFormHeight * 0.75);
+  const compactResultBox = await page.locator("#build-result").boundingBox();
+  expect(compactResultBox.y + compactResultBox.height).toBeLessThanOrEqual(1000);
+  expect(await page.locator("#loadout-equipment").evaluate(board => getComputedStyle(board).gridTemplateColumns.split(" ").length)).toBe(8);
+  const buffGroupBox = await page.locator(".active-effect-group").first().boundingBox();
+  const petGroupBox = await page.locator(".active-effect-group").nth(1).boundingBox();
+  expect(Math.abs(buffGroupBox.y - petGroupBox.y)).toBeLessThan(2);
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.locator("#yokou-mode")).toBeChecked();
   await page.locator("#tab-build").click();
