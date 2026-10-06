@@ -30,9 +30,11 @@ use crate::mobs::Mob;
 
 #[cfg(not(target_arch = "wasm32"))]
 const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
-pub const WEB_BUILD_ID: &str = "2026-10-03-grinding-share-v29";
+pub const WEB_BUILD_ID: &str = "2026-10-03-compact-build-codes-v30";
 const DEFAULT_PAGE_SIZE: usize = 30;
 const MAX_PAGE_SIZE: usize = 100;
+const MAX_BUILD_ITEM_IDS: usize = 64;
+const MAX_BUILD_SKILL_IDS: usize = 32;
 
 const INDEX_HTML: &str = include_str!("../web/index.html");
 const STYLES_CSS: &str = include_str!("../web/styles.css");
@@ -325,6 +327,7 @@ fn route(data: &WebData, method: &str, target: &str, body: &[u8]) -> Response {
     if method == "POST" {
         return match path {
             "/api/build/inspect" => inspect_build_api(data, body),
+            "/api/build/resolve-ids" => resolve_build_ids_api(data, body),
             "/api/grind/compare" => grind_compare_api(data, body),
             "/api/grind/leaderboard" => grind_leaderboard_api(data, body),
 
@@ -749,6 +752,12 @@ struct BuildRequest {
 }
 
 #[derive(Deserialize)]
+struct ResolveBuildIdsRequest {
+    item_ids: Vec<u32>,
+    skill_ids: Vec<u32>,
+}
+
+#[derive(Deserialize)]
 struct GrindRequest {
     build: CharacterBuild,
     assumptions: GrindingAssumptions,
@@ -787,6 +796,90 @@ fn inspect_build_api(data: &WebData, body: &[u8]) -> Response {
     };
     let inspection = inspect_build(&build, &data.items, &data.item_sets, &data.skills);
     Response::json(200, json!({ "build": inspection }))
+}
+
+fn trailing_slug_id(slug: &str) -> Option<u32> {
+    let (prefix, digits) = slug.rsplit_once('-')?;
+    if prefix.is_empty() || digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
+}
+
+fn resolve_requested_ids<'a>(
+    requested_ids: &BTreeSet<u32>,
+    slugs: impl IntoIterator<Item = &'a str>,
+    namespace: &str,
+) -> std::result::Result<BTreeMap<u32, &'a str>, Response> {
+    let mut resolved = BTreeMap::new();
+    let mut ambiguous = BTreeSet::new();
+    for slug in slugs {
+        let Some(id) = trailing_slug_id(slug) else {
+            continue;
+        };
+        if !requested_ids.contains(&id) {
+            continue;
+        }
+        if resolved.contains_key(&id) {
+            ambiguous.insert(id);
+        } else {
+            resolved.insert(id, slug);
+        }
+    }
+
+    if let Some(id) = ambiguous.first() {
+        return Err(Response::json_error(
+            422,
+            &format!("ambiguous {namespace} ID: {id}"),
+        ));
+    }
+    if let Some(id) = requested_ids.iter().find(|id| !resolved.contains_key(id)) {
+        return Err(Response::json_error(
+            422,
+            &format!("unknown {namespace} ID: {id}"),
+        ));
+    }
+    Ok(resolved)
+}
+
+fn resolve_build_ids_api(data: &WebData, body: &[u8]) -> Response {
+    let request: ResolveBuildIdsRequest = match parse_body(body) {
+        Ok(request) => request,
+        Err(response) => return response,
+    };
+    if request.item_ids.len() > MAX_BUILD_ITEM_IDS {
+        return Response::json_error(
+            422,
+            &format!("at most {MAX_BUILD_ITEM_IDS} item IDs may be requested"),
+        );
+    }
+    if request.skill_ids.len() > MAX_BUILD_SKILL_IDS {
+        return Response::json_error(
+            422,
+            &format!("at most {MAX_BUILD_SKILL_IDS} skill IDs may be requested"),
+        );
+    }
+
+    let item_ids = request.item_ids.into_iter().collect::<BTreeSet<_>>();
+    let skill_ids = request.skill_ids.into_iter().collect::<BTreeSet<_>>();
+    let items = match resolve_requested_ids(
+        &item_ids,
+        data.items.iter().map(|item| item.slug.as_str()),
+        "item",
+    ) {
+        Ok(items) => items,
+        Err(response) => return response,
+    };
+    let skills = match resolve_requested_ids(
+        &skill_ids,
+        data.skills.iter().map(|skill| skill.slug.as_str()),
+        "skill",
+    ) {
+        Ok(skills) => skills,
+        Err(response) => return response,
+    };
+
+    Response::json(200, json!({ "items": items, "skills": skills }))
 }
 
 fn grind_api(data: &WebData, mob_slug: &str, body: &[u8]) -> Response {
@@ -926,6 +1019,119 @@ mod tests {
             mobs: Vec::new(),
             item_types: vec!["One-Hand Sword".into()],
         }
+    }
+
+    fn empty_skill(slug: &str) -> Skill {
+        Skill {
+            name: slug.into(),
+            slug: slug.into(),
+            rank: None,
+            quick_facts: Vec::new(),
+            level_requirement: None,
+            attribute_requirements: Vec::new(),
+            cast_time: None,
+            duration: None,
+            cooldown: None,
+            energy_cost: None,
+            effects: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn resolve_ids_route_is_available() {
+        let response = route(
+            &data(),
+            "POST",
+            "/api/build/resolve-ids",
+            br#"{"item_ids":[],"skill_ids":[]}"#,
+        );
+        assert_eq!(response.status, 200);
+        assert_eq!(
+            serde_json::from_slice::<Value>(&response.body).unwrap(),
+            json!({ "items": {}, "skills": {} })
+        );
+    }
+
+    #[test]
+    fn resolve_ids_keeps_item_and_skill_namespaces_separate() {
+        let mut data = data();
+        data.skills.push(empty_skill("toy-skill-26"));
+        let response = route(
+            &data,
+            "POST",
+            "/api/build/resolve-ids",
+            br#"{"item_ids":[26,26],"skill_ids":[26,26]}"#,
+        );
+        assert_eq!(response.status, 200);
+        let value: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(value["items"], json!({ "26": "toy-sword-26" }));
+        assert_eq!(value["skills"], json!({ "26": "toy-skill-26" }));
+    }
+
+    #[test]
+    fn resolve_ids_rejects_unknown_and_ambiguous_ids() {
+        let mut data = data();
+        data.skills.push(empty_skill("skill-only-27"));
+        let unknown = route(
+            &data,
+            "POST",
+            "/api/build/resolve-ids",
+            br#"{"item_ids":[27],"skill_ids":[]}"#,
+        );
+        assert_eq!(unknown.status, 422);
+
+        let mut duplicate =
+            serde_json::from_slice::<Item>(&serde_json::to_vec(&data.items[0]).unwrap()).unwrap();
+        duplicate.slug = "different-sword-26".into();
+        data.items.push(duplicate);
+        let ambiguous = route(
+            &data,
+            "POST",
+            "/api/build/resolve-ids",
+            br#"{"item_ids":[26],"skill_ids":[]}"#,
+        );
+        assert_eq!(ambiguous.status, 422);
+    }
+
+    #[test]
+    fn malformed_slug_suffixes_do_not_resolve() {
+        assert_eq!(trailing_slug_id("valid-prefix-12"), Some(12));
+        for slug in [
+            "12",
+            "-12",
+            "missing-number",
+            "number-12-suffix",
+            "overflow-4294967296",
+        ] {
+            assert_eq!(trailing_slug_id(slug), None, "slug {slug}");
+        }
+
+        let mut data = data();
+        data.items[0].slug = "-26".into();
+        let response = route(
+            &data,
+            "POST",
+            "/api/build/resolve-ids",
+            br#"{"item_ids":[26],"skill_ids":[]}"#,
+        );
+        assert_eq!(response.status, 422);
+    }
+
+    #[test]
+    fn resolve_ids_enforces_small_request_limits() {
+        let item_ids = (0..=MAX_BUILD_ITEM_IDS as u32).collect::<Vec<_>>();
+        let body = serde_json::to_vec(&json!({ "item_ids": item_ids, "skill_ids": [] })).unwrap();
+        assert_eq!(
+            route(&data(), "POST", "/api/build/resolve-ids", &body).status,
+            422
+        );
+
+        let skill_ids = (0..=MAX_BUILD_SKILL_IDS as u32).collect::<Vec<_>>();
+        let body = serde_json::to_vec(&json!({ "item_ids": [], "skill_ids": skill_ids })).unwrap();
+        assert_eq!(
+            route(&data(), "POST", "/api/build/resolve-ids", &body).status,
+            422
+        );
     }
 
     #[test]

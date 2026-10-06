@@ -1563,7 +1563,7 @@ mod tests {
                 .confirmed_derived_stats
                 .displayed_crit_percent
                 .unwrap()
-                - 108.500_714_285_714_28)
+                - 108.5)
                 .abs()
                 < 1e-9
         );
@@ -1578,7 +1578,7 @@ mod tests {
                 .confirmed_derived_stats
                 .expected_basic_attack_dps
                 .unwrap()
-                - 2_297.955_148_571_428_7)
+                - 2_297.948)
                 .abs()
                 < 1e-9
         );
@@ -1840,7 +1840,7 @@ mod tests {
         assert!(inspection.issues.is_empty());
         assert_eq!(
             inspection.confirmed_derived_stats.displayed_crit_percent,
-            Some(6.43)
+            Some(90.0 / 14.0)
         );
         assert_eq!(
             inspection.confirmed_derived_stats.displayed_dodge_percent,
@@ -1889,7 +1889,7 @@ mod tests {
                 .confirmed_derived_stats
                 .displayed_crit_percent
                 .unwrap()
-                - 28.858_571_428_571_43)
+                - 28.857_142_857_142_858)
                 .abs()
                 < 1e-9
         );
@@ -2011,7 +2011,7 @@ mod tests {
         assert_eq!(inspection.active_effect_stats.crit, 2);
         assert_eq!(
             inspection.confirmed_derived_stats.displayed_crit_percent,
-            Some(8.43)
+            Some(118.0 / 14.0)
         );
 
         selected.active_skill_effects[0].role = ActiveSkillRole::Pet;

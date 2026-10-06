@@ -1,6 +1,6 @@
 "use strict";
 
-const EXPECTED_WEB_BUILD_ID = "2026-10-03-grinding-share-v29";
+const EXPECTED_WEB_BUILD_ID = "2026-10-03-compact-build-codes-v30";
 const STATIC_RUNTIME = document.documentElement.dataset.runtime === "static";
 let staticRuntimePromise = null;
 
@@ -84,8 +84,17 @@ const pretty = value => JSON.stringify(value, null, 2);
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
 const humanize = value => String(value).replace(/[_-]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
 const storageKey = name => `fo2-dps:${name}`;
-const BUILD_CODE_VERSION = 1;
+const BUILD_CODE_VERSION = 2;
+const LEGACY_BUILD_CODE_VERSION = 1;
 const MAX_BUILD_CODE_LENGTH = 65_536;
+const BUILD_CODE_MAX_U32 = 4_294_967_295;
+const BUILD_CODE_PROGRESSIONS = ["spawn", "rebirth", "ascension"];
+const BUILD_CODE_EQUIPMENT_SLOTS = [
+  "head", "face", "shoulders", "back", "chest", "legs", "main-hand", "off-hand", "ring", "trinket",
+  "implant-brain", "implant-heart", "implant-left-arm", "implant-right-arm", "implant-left-leg", "implant-right-leg",
+  "relic", "mount", "guild", "faction", "bag", "fishing-gear"
+];
+const BUILD_CODE_ACTIVE_ROLES = ["buff", "pet", "morph"];
 
 function readStored(name, fallback) {
   try { return localStorage.getItem(storageKey(name)) || pretty(fallback); }
@@ -96,23 +105,163 @@ function store(name, value) {
   try { localStorage.setItem(storageKey(name), value); } catch { /* Storage can be disabled. */ }
 }
 
+function buildCodeInteger(value, label, { nullable = false } = {}) {
+  if (nullable && value == null) return null;
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > BUILD_CODE_MAX_U32) {
+    throw new Error(`${label} must be a non-negative whole number`);
+  }
+  return value;
+}
+
+function buildEntityId(slug, label) {
+  const match = /-(\d+)$/.exec(String(slug || ""));
+  if (!match) throw new Error(`${label} does not have a shareable numeric ID`);
+  return buildCodeInteger(Number(match[1]), `${label} ID`);
+}
+
+function compactBuildV2(build) {
+  const progression = BUILD_CODE_PROGRESSIONS.indexOf(build.progression);
+  if (progression < 0) throw new Error("Build progression is not shareable");
+  const allocated = build.allocated || {};
+  const equipment = [];
+  for (const entry of build.equipment || []) {
+    const slot = BUILD_CODE_EQUIPMENT_SLOTS.indexOf(entry.slot);
+    if (slot < 0) throw new Error(`Equipment slot ${entry.slot || "(empty)"} is not shareable`);
+    equipment.push(
+      slot,
+      buildCodeInteger(entry.slot_index ?? 0, `${entry.slot} slot index`),
+      buildEntityId(entry.item_slug, `Item ${entry.item_slug || "(empty)"}`)
+    );
+  }
+  const skills = (build.skills || []).map(slug => buildEntityId(slug, `Skill ${slug || "(empty)"}`));
+  const activeEffects = [];
+  for (const effect of build.active_skill_effects || []) {
+    const role = BUILD_CODE_ACTIVE_ROLES.indexOf(effect.role);
+    if (role < 0) throw new Error(`Active skill role ${effect.role || "(empty)"} is not shareable`);
+    activeEffects.push(role, buildEntityId(effect.skill_slug, `Skill ${effect.skill_slug || "(empty)"}`));
+  }
+  const payload = [
+    BUILD_CODE_VERSION,
+    buildCodeInteger(build.level, "Build level"),
+    progression,
+    buildCodeInteger(allocated.stamina ?? 0, "Stamina allocation"),
+    buildCodeInteger(allocated.strength ?? 0, "Strength allocation"),
+    buildCodeInteger(allocated.agility ?? 0, "Agility allocation"),
+    buildCodeInteger(allocated.intellect ?? 0, "Intellect allocation"),
+    equipment,
+    skills,
+    activeEffects
+  ];
+  const factionNotoriety = buildCodeInteger(build.faction_notoriety, "Faction notoriety", { nullable: true });
+  const guildLevel = buildCodeInteger(build.guild_level, "Guild level", { nullable: true });
+  if (factionNotoriety != null || guildLevel != null) payload.push(factionNotoriety);
+  if (guildLevel != null) payload.push(guildLevel);
+  return payload;
+}
+
 function encodeBuildCode(build) {
-  const bytes = new TextEncoder().encode(JSON.stringify({ v: BUILD_CODE_VERSION, build }));
+  const bytes = new TextEncoder().encode(JSON.stringify(compactBuildV2(build)));
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
 }
 
-function decodeBuildCode(code) {
+function parseBuildCodePayload(code) {
   const compact = String(code || "").trim();
   if (!compact || compact.length > MAX_BUILD_CODE_LENGTH) throw new Error("Build code is empty or too large");
   const base64 = compact.replaceAll("-", "+").replaceAll("_", "/");
   const binary = atob(base64 + "=".repeat((4 - base64.length % 4) % 4));
-  const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0))));
-  if (!payload || payload.v !== BUILD_CODE_VERSION || typeof payload.build !== "object" || Array.isArray(payload.build)) {
-    throw new Error("Unsupported or invalid build code");
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0))));
+}
+
+function checkedBuildCodeArray(value, label, maximumLength) {
+  if (!Array.isArray(value) || value.length > maximumLength) throw new Error(`Invalid ${label} in build code`);
+  return value;
+}
+
+async function expandBuildV2(payload) {
+  if (payload.length < 10 || payload.length > 12) throw new Error("Invalid version 2 build code");
+  const level = buildCodeInteger(payload[1], "Build level");
+  const progressionCode = buildCodeInteger(payload[2], "Build progression");
+  const progression = BUILD_CODE_PROGRESSIONS[progressionCode];
+  if (!progression) throw new Error("Invalid build progression in build code");
+  const allocated = {
+    stamina: buildCodeInteger(payload[3], "Stamina allocation"),
+    strength: buildCodeInteger(payload[4], "Strength allocation"),
+    agility: buildCodeInteger(payload[5], "Agility allocation"),
+    intellect: buildCodeInteger(payload[6], "Intellect allocation")
+  };
+  const compactEquipment = checkedBuildCodeArray(payload[7], "equipment", 192);
+  const compactSkills = checkedBuildCodeArray(payload[8], "skills", 32);
+  const compactEffects = checkedBuildCodeArray(payload[9], "active skills", 64);
+  if (compactEquipment.length % 3 !== 0 || compactEffects.length % 2 !== 0) {
+    throw new Error("Invalid equipment or active-skill data in build code");
   }
-  return migrateBuild(payload.build);
+
+  const equipmentRecords = [];
+  const itemIds = new Set();
+  for (let index = 0; index < compactEquipment.length; index += 3) {
+    const slotCode = buildCodeInteger(compactEquipment[index], "Equipment slot");
+    const slot = BUILD_CODE_EQUIPMENT_SLOTS[slotCode];
+    if (!slot) throw new Error("Invalid equipment slot in build code");
+    const slotIndex = buildCodeInteger(compactEquipment[index + 1], "Equipment slot index");
+    const itemId = buildCodeInteger(compactEquipment[index + 2], "Item ID");
+    equipmentRecords.push({ slot, slot_index: slotIndex, itemId });
+    itemIds.add(itemId);
+  }
+
+  const skillIds = new Set();
+  const selectedSkillIds = compactSkills.map(value => {
+    const id = buildCodeInteger(value, "Skill ID");
+    skillIds.add(id);
+    return id;
+  });
+  const activeRecords = [];
+  for (let index = 0; index < compactEffects.length; index += 2) {
+    const roleCode = buildCodeInteger(compactEffects[index], "Active skill role");
+    const role = BUILD_CODE_ACTIVE_ROLES[roleCode];
+    if (!role) throw new Error("Invalid active skill role in build code");
+    const skillId = buildCodeInteger(compactEffects[index + 1], "Skill ID");
+    activeRecords.push({ role, skillId });
+    skillIds.add(skillId);
+  }
+  if (itemIds.size > 64 || skillIds.size > 32) throw new Error("Build code contains too many items or skills");
+
+  const resolved = await api("/api/build/resolve-ids", {
+    method: "POST",
+    body: JSON.stringify({ item_ids: [...itemIds], skill_ids: [...skillIds] })
+  });
+  const resolvedSlug = (records, id, label) => {
+    const slug = records?.[String(id)];
+    if (!slug) throw new Error(`${label} ID ${id} is unavailable`);
+    return slug;
+  };
+  return migrateBuild({
+    level,
+    progression,
+    allocated,
+    equipment: equipmentRecords.map(entry => ({
+      slot: entry.slot,
+      slot_index: entry.slot_index,
+      item_slug: resolvedSlug(resolved.items, entry.itemId, "Item")
+    })),
+    skills: selectedSkillIds.map(id => resolvedSlug(resolved.skills, id, "Skill")),
+    active_skill_effects: activeRecords.map(entry => ({
+      skill_slug: resolvedSlug(resolved.skills, entry.skillId, "Skill"),
+      role: entry.role
+    })),
+    faction_notoriety: payload.length > 10 ? buildCodeInteger(payload[10], "Faction notoriety", { nullable: true }) : null,
+    guild_level: payload.length > 11 ? buildCodeInteger(payload[11], "Guild level", { nullable: true }) : null
+  });
+}
+
+async function decodeBuildCode(code) {
+  const payload = parseBuildCodePayload(code);
+  if (payload && payload.v === LEGACY_BUILD_CODE_VERSION && typeof payload.build === "object" && !Array.isArray(payload.build)) {
+    return migrateBuild(payload.build);
+  }
+  if (Array.isArray(payload) && payload[0] === BUILD_CODE_VERSION) return expandBuildV2(payload);
+  throw new Error("Unsupported or invalid build code");
 }
 
 function shareUrlForBuild(build) {
@@ -1398,7 +1547,7 @@ async function loadSuggestions(type, search, datalistSelector) {
   } catch { /* Suggestions are optional; form submission still reports exact errors. */ }
 }
 
-function initEditors() {
+async function initEditors() {
   const fields = {
     build: [$("#build-json"), $("#build-validity")],
     grind: [$("#grind-json"), $("#grind-validity")], compare: [$("#compare-json"), $("#grind-validity")]
@@ -1412,7 +1561,7 @@ function initEditors() {
   let initialBuild = safeJson(fields.build[0], EXAMPLES.build);
   if (sharedCode) {
     try {
-      initialBuild = decodeBuildCode(sharedCode);
+      initialBuild = await decodeBuildCode(sharedCode);
       fields.build[0].value = pretty(initialBuild);
       $("#build-code").value = sharedCode;
       $("#build-code-status").textContent = "Loaded build from shared URL.";
@@ -1450,28 +1599,30 @@ function initEditors() {
     setTimeout(() => URL.revokeObjectURL(url), 0); toast("Build JSON downloaded");
   });
   $("#copy-build-code").addEventListener("click", async () => {
-    const code = encodeBuildCode(buildFromGuided());
-    $("#build-code").value = code;
     try {
+      const code = encodeBuildCode(buildFromGuided());
+      $("#build-code").value = code;
       await copyText(code, $("#build-code"));
-      $("#build-code-status").textContent = "Build code copied.";
+      $("#build-code-status").textContent = "Short build code copied.";
     } catch (error) {
-      $("#build-code-status").textContent = `Build code ready; ${error.message}`;
+      $("#build-code-status").textContent = error.message;
     }
   });
   $("#copy-share-url").addEventListener("click", async () => {
-    const url = shareUrlForBuild(buildFromGuided());
-    $("#build-code").value = new URL(url).searchParams.get("build");
     try {
+      const url = shareUrlForBuild(buildFromGuided());
+      $("#build-code").value = new URL(url).searchParams.get("build");
       await copyText(url, $("#build-code"));
       $("#build-code-status").textContent = "Share URL copied.";
     } catch (error) {
-      $("#build-code-status").textContent = `Share URL ready; ${error.message}`;
+      $("#build-code-status").textContent = error.message;
     }
   });
-  $("#load-build-code").addEventListener("click", () => {
+  $("#load-build-code").addEventListener("click", async () => {
+    const button = $("#load-build-code");
+    button.disabled = true;
     try {
-      const build = decodeBuildCode($("#build-code").value);
+      const build = await decodeBuildCode($("#build-code").value);
       fields.build[0].value = pretty(build);
       applyBuildToGuided(build);
       syncBuildFromGuided();
@@ -1479,6 +1630,8 @@ function initEditors() {
       toast("Shared build loaded");
     } catch (error) {
       $("#build-code-status").textContent = error.message;
+    } finally {
+      button.disabled = false;
     }
   });
   $("#import-build").addEventListener("change", async event => {
@@ -1592,12 +1745,12 @@ function initDialog() {
   $("#skill-picker-search").addEventListener("input", debounce(loadPickerSkills, 250));
 }
 
-function init() {
+async function init() {
   initThemeSwitcher();
   initYokouMode();
   initTabs();
   initExplorer();
-  initEditors();
+  await initEditors();
   initGrindingMode();
   initDialog();
   initGameTooltips();

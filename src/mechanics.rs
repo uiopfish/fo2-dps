@@ -18,9 +18,11 @@ pub const BASE_ARMOR: i32 = 0;
 pub const BASE_ATTACK_POWER: i32 = 40;
 pub const BASE_UNARMED_DAMAGE_MIN: u32 = 7;
 pub const BASE_UNARMED_DAMAGE_MAX: u32 = 10;
-pub const BASE_CRIT_DISPLAY_PERCENT: f64 = 6.43;
-pub const BASE_DODGE_DISPLAY_PERCENT: f64 = 5.0;
+pub const CRIT_FORMULA_OFFSET: f64 = 50.0;
 pub const CRIT_ATTRIBUTE_POINTS_PER_PERCENT: f64 = 14.0;
+pub const BASE_CRIT_DISPLAY_PERCENT: f64 =
+    (CRIT_FORMULA_OFFSET + 2.0 * BASE_ATTRIBUTE_VALUE as f64) / CRIT_ATTRIBUTE_POINTS_PER_PERCENT;
+pub const BASE_DODGE_DISPLAY_PERCENT: f64 = 5.0;
 pub const CRIT_DIMINISHING_RETURNS_THRESHOLD_PERCENT: f64 = 80.0;
 pub const CRIT_ADDITION_ABOVE_THRESHOLD_MULTIPLIER: f64 = 0.5;
 pub const UNARMED_INTRINSIC_DAMAGE_MIN: u32 = 3;
@@ -77,12 +79,11 @@ pub fn displayed_crit_from_total_attributes(
     total_intellect: u32,
     direct_crit: u32,
 ) -> f64 {
-    let attribute_points = total_agility.saturating_sub(BASE_ATTRIBUTE_VALUE)
-        + total_intellect.saturating_sub(BASE_ATTRIBUTE_VALUE);
-    let addition =
-        f64::from(attribute_points) / CRIT_ATTRIBUTE_POINTS_PER_PERCENT + f64::from(direct_crit);
-    crit_after_addition(BASE_CRIT_DISPLAY_PERCENT, addition)
-        .expect("attribute and direct Crit additions are nonnegative and finite")
+    let raw_crit = (CRIT_FORMULA_OFFSET + f64::from(total_agility) + f64::from(total_intellect))
+        / CRIT_ATTRIBUTE_POINTS_PER_PERCENT
+        + f64::from(direct_crit);
+    crit_after_addition(0.0, raw_crit)
+        .expect("attribute and direct Crit contributions are nonnegative and finite")
 }
 
 /// Confirmed only through the linear region ending at 40% Dodge.
@@ -331,9 +332,9 @@ pub struct PerPointEffect {
     pub max_energy: u32,
 }
 
-/// Effects of spending one point in an attribute, as supplied from the
-/// creator's official Discord. The caller supplies `is_highest_allocated`;
-/// tie behavior is intentionally not guessed here.
+/// Effects of spending one point in an attribute under the active sourced rules.
+/// Crit uses the observed numerator formula's exact marginal rate. The caller
+/// supplies `is_highest_allocated`; tie behavior is intentionally not guessed.
 pub fn per_allocated_point(attribute: Attribute, is_highest_allocated: bool) -> PerPointEffect {
     let mut effect = PerPointEffect {
         attack_power: 0,
@@ -356,11 +357,11 @@ pub fn per_allocated_point(attribute: Attribute, is_highest_allocated: bool) -> 
         }
         Attribute::Agility => {
             effect.attack_power = u32::from(is_highest_allocated) * 2;
-            effect.crit_chance_percentage_points = 0.075;
+            effect.crit_chance_percentage_points = 1.0 / CRIT_ATTRIBUTE_POINTS_PER_PERCENT;
         }
         Attribute::Intellect => {
             effect.attack_power = u32::from(is_highest_allocated) * 2;
-            effect.crit_chance_percentage_points = 0.075;
+            effect.crit_chance_percentage_points = 1.0 / CRIT_ATTRIBUTE_POINTS_PER_PERCENT;
             effect.max_energy = 15;
         }
     }
@@ -496,8 +497,9 @@ mod tests {
 
     #[test]
     fn observed_attribute_crit_formula_and_direct_crit_share_the_eighty_percent_soft_cap() {
-        let expected = 108.500_714_285_714_28;
-        assert!((displayed_crit_from_total_attributes(873, 141, 61) - expected).abs() < 1e-9);
+        assert_eq!(displayed_crit_from_total_attributes(20, 20, 0), 90.0 / 14.0);
+        assert_eq!(displayed_crit_from_total_attributes(98, 20, 0), 12.0);
+        assert_eq!(displayed_crit_from_total_attributes(873, 141, 61), 108.5);
     }
 
     #[test]
@@ -547,9 +549,7 @@ mod tests {
         assert_eq!(level_39_agility.agility - BASE_ATTRIBUTE_VALUE, 78);
         assert_eq!(level_39_agility.attack_power, BASE_ATTACK_POWER + 78 * 2);
         assert_eq!(level_39_agility.dodge_percent, 24.5);
-        assert!(
-            (displayed_crit_from_total_attributes(98, 20, 0) - 12.001_428_571_428_571).abs() < 1e-9
-        );
+        assert_eq!(displayed_crit_from_total_attributes(98, 20, 0), 12.0);
         assert_eq!(dodge_in_confirmed_linear_region(98), Some(24.5));
         assert_eq!(unarmed_damage_from_attack_power(196), Some((22, 25)));
         assert_eq!(unarmed_damage_from_attack_power(400), Some((43, 46)));
@@ -610,7 +610,7 @@ mod tests {
         );
         assert_eq!(
             per_allocated_point(Attribute::Agility, false).crit_chance_percentage_points,
-            0.075
+            1.0 / 14.0
         );
     }
 

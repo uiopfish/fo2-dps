@@ -43,14 +43,14 @@ Source: https://db.fantasyonline2.com/guides/builds-and-progression
 - A character may have at most five active buff/morph effects and one active pet. Morphs use the same five slots as buffs. Pets are available only from Rebirth onward; Spawn builds cannot activate a pet.
 - Level, progression, faction-notoriety, and guild-level restrictions are distinct from attribute overequipping and remain validated where published.
 
-Official Discord information supplied by the project owner states these effects apply per allocated point:
+Combined Discord, guildmate, and panel evidence supports these effects per allocated point:
 
 - Stamina: +2 Attack Power when it is the highest allocated attribute; +20 health; +0.1 health regeneration.
 - Strength: +3 Attack Power when highest allocated, otherwise +1; +5 armor; +0.1 health regeneration.
-- Agility: +2 Attack Power when highest allocated; +0.075 percentage points of Crit; a separately described Dodge rule.
-- Intellect: +2 Attack Power when highest allocated; +15 energy; +0.075 percentage points of Crit.
+- Agility: +2 Attack Power when highest allocated; `1 ÷ 14` percentage points of raw Crit before the soft cap; a separately described Dodge rule.
+- Intellect: +2 Attack Power when highest allocated; +15 energy; `1 ÷ 14` percentage points of raw Crit before the soft cap.
 
-Attack Power does not affect skills. Whether multiple attributes tied for highest all receive their highest bonus is not yet confirmed. The recorded level-103 equipped build confirms that item- and set-granted Stamina, Strength, and Agility participate in maximum Health, Armor, Attack Power, and Dodge calculations; these formulas use total attributes above the base 20 rather than allocated points alone. In-game observations confirm the linear Dodge contribution through 24.50%; the project owner has confirmed the piecewise high-Dodge rule documented below as the active calculator rule.
+The original Discord summary described the Crit increment as `0.075`; the exact numerator formula and observed panels instead give `1 ÷ 14 = 0.07142857`. Attack Power does not affect skills. Whether multiple attributes tied for highest all receive their highest bonus is not yet confirmed. The recorded level-103 equipped build confirms that item- and set-granted Stamina, Strength, and Agility participate in maximum Health, Armor, Attack Power, and Dodge calculations; these formulas use total attributes above the base 20 rather than allocated points alone. In-game observations confirm the linear Dodge contribution through 24.50%; the project owner has confirmed the piecewise high-Dodge rule documented below as the active calculator rule.
 
 ### Item-set activation
 
@@ -94,12 +94,13 @@ Sources:
 
 - https://db.fantasyonline2.com/skills/l33t-skillz-6
 - Creator-published code supplied from the official Discord by the project owner on 2026-09-15.
+- Guildmate report supplied by the project owner on 2026-10-05 for the exact pre-soft-cap attribute numerator.
 
 `Crit +2` is described as an extra 2% chance. Critical damage uses a chained multiplier algorithm: start at ×1; while Crit remains above zero, roll against `min(remaining Crit, 90)%`; each success adds ×1 and subtracts 90 Crit; the first failure ends the chain. This permits multipliers above ×2 when Crit exceeds 90. `src/mechanics.rs` preserves that algorithm and provides its exact expected multiplier.
 
 Crit is uncapped. Attribute Crit and direct `+Crit` from every source are summed into one addition. Additions that remain at or below 80% apply at full value; the portion of the combined addition above 80% is halved. For example, applying a +12% Crit buff at 78% consumes 2 percentage points at full value to reach 80%, then contributes half of the remaining 10, producing 85% Crit. Starting at 80%, the same +12% buff produces 86% Crit. `src/mechanics.rs` models this piecewise addition separately from the chained critical-hit multiplier.
 
-The nude all-20 panel shows 6.43% base Crit. Although the supplied Discord description says each allocated Agility and Intellect point grants 0.075 percentage points, the observed character panels fit an effective displayed-Crit contribution of one percentage point per 14 total Agility/Intellect points above each attribute's innate base 20. The calculator therefore uses `((Agility − 20) + (Intellect − 20)) ÷ 14` before adding direct Crit and applying the all-source soft cap. For the level-103 build, 974 contributing attribute points and 61 direct Crit produce `108.5007%`, displayed as `108.50%`. The level-39 panel independently gives `6.43 + 78 ÷ 14 = 12.0014%`, displayed as `12.00%`. The exact internal rounding and the discrepancy between the nominal `0.075` description and observed `1 ÷ 14` behavior still need controlled verification. Crit is confirmed uncapped.
+The active pre-soft-cap attribute formula is `(50 + total Agility + total Intellect) ÷ 14`. Direct `+Crit` then joins that raw total before the all-source soft cap is applied. This gives the all-20 baseline `(50 + 20 + 20) ÷ 14 = 6.428571%`, displayed as `6.43%`; the level-39 panel `(50 + 98 + 20) ÷ 14 = 12.00%` exactly; and the level-103 build `(50 + 873 + 141) ÷ 14 + 61 = 137%` raw, reduced to exactly `108.50%`. The earlier calculator approximation used the rounded `6.43%` panel baseline plus one point per 14 attribute points above the innate 20s, producing values only `0.001429` percentage points higher before the soft cap. The nominal `0.075` Discord description still conflicts with the observed exact marginal rate of `1 ÷ 14`; controlled verification remains useful. Crit is confirmed uncapped.
 
 ### Attack speed
 
@@ -234,7 +235,7 @@ The level-60 allocation independently confirms `120 × 5 = 600` Armor and baseli
 
 The regeneration observations produce `floor(38 / 2) + 5 = 24`, `floor(38 / 2) + 10 = 29`, and the same results at level 39. The level-104 playground values independently produce `floor(104 / 2) + 5 = 57` and `floor(104 / 2) + 10 = 62`. This is a strong exact fit across three panels, but remains Bounded until another controlled level or authoritative formula confirms it.
 
-The level-39 allocation confirms baseline `40 + 78 × 2 = 196` Attack Power from highest-allocated Agility and the linear Dodge result `5.00% + 78 × 0.25% = 24.50%`. The linear Dodge rule is therefore confirmed through 24.50%; behavior near and above the stated 40% transition remains unknown. Its 12.00% Crit display matches the observed effective formula `6.43% + 78 ÷ 14 = 12.0014%`, rounded to two decimals, rather than the nominal Discord description `6.43% + 78 × 0.075% = 12.28%`.
+The level-39 allocation confirms baseline `40 + 78 × 2 = 196` Attack Power from highest-allocated Agility and the linear Dodge result `5.00% + 78 × 0.25% = 24.50%`. The linear Dodge rule is therefore confirmed through 24.50%; behavior near and above the stated 40% transition remains unknown. Its 12.00% Crit display exactly matches `(50 + 98 Agility + 20 Intellect) ÷ 14 = 12.00%`, rather than the nominal Discord description based on `0.075` percentage points per attribute point.
 
 The three unarmed observations establish an intrinsic unarmed range of 3–6 plus `floor(total Attack Power ÷ 10)` at the tested Attack Power values:
 
@@ -307,7 +308,7 @@ This fixture confirms three previously misapplied formulas:
 - `Armor = direct item/set Armor + (total Strength − 20) × 5 = 124,375`.
 - `Attack Power = 40 + (total Strength − 20) + 2 × (highest total attribute − 20) + direct item/set Attack Power = 2,481`.
 
-The corrected panel reading of 8,875 confirms `Energy = level × 20 + (total Intellect − 20) × 15 + direct Max Energy`: `103 × 20 + 121 × 15 + 5,000 = 8,875`. The exact 108.50% Crit total remains unresolved. Crit is nevertheless confirmed uncapped.
+The corrected panel reading of 8,875 confirms `Energy = level × 20 + (total Intellect − 20) × 15 + direct Max Energy`: `103 × 20 + 121 × 15 + 5,000 = 8,875`. The reported Crit numerator formula exactly explains the 108.50% panel: `(50 + 873 + 141) ÷ 14 + 61 = 137%` raw Crit, then `80 + (137 − 80) ÷ 2 = 108.50%`. Crit is confirmed uncapped.
 
 The 873 Agility / 81.46% Dodge observation strongly fits the following piecewise candidate when all displayed Agility is treated identically:
 
@@ -334,7 +335,7 @@ Until those formulas are confirmed, production calculations must not silently in
 The most valuable remaining measurements are:
 
 - Record individual incoming hits from the same mob at two or more known Armor totals, ideally including zero and negative Armor, to verify range distribution, rounding, and any floor/cap around the confirmed mitigation formula. Use the explicit survival assumption only when intentionally bypassing incoming damage.
-- Capture Crit before/after one known direct-Crit item on the level-103 build to verify the shared soft cap independently; the configured divisor-14 attribute formula predicts 108.5007%, matching the supplied 108.50% panel.
+- Capture Crit before/after one known direct-Crit item on the level-103 build to verify the shared soft cap independently; the configured numerator formula predicts exactly 108.50%.
 - Remove one known Agility item from the level-103 build and record final Agility and Dodge as regression evidence for the active piecewise rule.
 - Create a build where two final attributes tie for highest and record Attack Power, then move one attribute ahead by one point.
 - For regeneration, record the panel before/after one Stamina, Strength, or Intellect change separately for allocated and equipment-granted attributes.

@@ -101,7 +101,11 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   await page.locator("#build-form .advanced-editor summary").click();
   await page.locator("#copy-build-code").click();
   const buildCode = await page.locator("#build-code").inputValue();
-  expect(buildCode.length).toBeGreaterThan(20);
+  const compactPayload = JSON.parse(Buffer.from(buildCode, "base64url").toString("utf8"));
+  const verboseV1Code = Buffer.from(JSON.stringify({ v: 1, build: JSON.parse(await page.locator("#build-json").inputValue()) }), "utf8").toString("base64url");
+  expect(compactPayload[0]).toBe(2);
+  expect(buildCode.length).toBeLessThan(100);
+  expect(buildCode.length).toBeLessThan(verboseV1Code.length / 2);
   await page.locator("#build-level").fill("10");
   await page.locator("#build-code").fill(buildCode);
   await page.locator("#load-build-code").click();
@@ -122,7 +126,7 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
-test("shared build URL loads without local setup", async ({ page }) => {
+test("legacy v1 shared build URL loads without local setup", async ({ page }) => {
   const build = {
     level: 10,
     progression: "spawn",
@@ -138,5 +142,18 @@ test("shared build URL loads without local setup", async ({ page }) => {
   await expect(page.locator("#tab-build")).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#build-level")).toHaveValue("10");
   await expect(page.locator("#build-strength")).toHaveValue("20");
+  await expect(page.locator("#build-code-status")).toHaveText("Loaded build from shared URL.");
+});
+
+test("compact v2 shared URL resolves item and skill IDs", async ({ page }) => {
+  const payload = [2, 103, 2, 0, 0, 0, 0, [1, 0, 387], [2848], [0, 2848]];
+  const code = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  expect(code.length).toBeLessThan(100);
+
+  await page.goto(`http://127.0.0.1:4173/?build=${code}#build`, { waitUntil: "networkidle" });
+  await expect(page.locator("#tab-build")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#build-level")).toHaveValue("103");
+  await expect(page.locator('[data-slot="face"]')).toHaveAttribute("data-tooltip-slug", "moon-talisman-387");
+  await expect(page.locator('[data-effect-role="buff"][data-effect-index="0"]')).toHaveAttribute("data-tooltip-slug", "manhole-manifest-1st-edition-2848");
   await expect(page.locator("#build-code-status")).toHaveText("Loaded build from shared URL.");
 });
