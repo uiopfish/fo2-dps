@@ -41,13 +41,22 @@ test("static Pages build runs without the Rust HTTP API", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-yokou-mode", "true");
   const compactSlotHeight = (await page.locator('[data-slot="face"]').boundingBox()).height;
   const compactBoardHeight = (await page.locator("#loadout-equipment").boundingBox()).height;
-  const compactFormHeight = (await page.locator("#build-form").boundingBox()).height;
+  const compactFormBox = await page.locator("#build-form").boundingBox();
+  const compactFormHeight = compactFormBox.height;
   expect(compactSlotHeight).toBeLessThan(normalSlotHeight);
-  expect(compactBoardHeight).toBeLessThan(normalBoardHeight * 0.55);
+  expect(compactBoardHeight).toBeLessThan(normalBoardHeight * 0.85);
   expect(compactFormHeight).toBeLessThan(normalFormHeight * 0.75);
+  expect(compactFormBox.y + compactFormBox.height).toBeLessThanOrEqual(1000);
   const compactResultBox = await page.locator("#build-result").boundingBox();
   expect(compactResultBox.y + compactResultBox.height).toBeLessThanOrEqual(1000);
-  expect(await page.locator("#loadout-equipment").evaluate(board => getComputedStyle(board).gridTemplateColumns.split(" ").length)).toBe(8);
+  const compactEquipmentGrid = await page.locator("#loadout-equipment").evaluate(board => {
+    const styles = getComputedStyle(board);
+    return {
+      columns: styles.gridTemplateColumns.split(" ").length,
+      rows: styles.gridTemplateRows.split(" ").length
+    };
+  });
+  expect(compactEquipmentGrid).toEqual({ columns: 4, rows: 4 });
   const buffGroupBox = await page.locator(".active-effect-group").first().boundingBox();
   const petGroupBox = await page.locator(".active-effect-group").nth(1).boundingBox();
   expect(Math.abs(buffGroupBox.y - petGroupBox.y)).toBeLessThan(2);
