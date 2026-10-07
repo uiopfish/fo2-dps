@@ -30,7 +30,7 @@ use crate::mobs::Mob;
 
 #[cfg(not(target_arch = "wasm32"))]
 const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
-pub const WEB_BUILD_ID: &str = "2026-10-03-compact-build-codes-v30";
+pub const WEB_BUILD_ID: &str = "2026-10-06-database-build-v4-v31";
 const DEFAULT_PAGE_SIZE: usize = 30;
 const MAX_PAGE_SIZE: usize = 100;
 const MAX_BUILD_ITEM_IDS: usize = 64;

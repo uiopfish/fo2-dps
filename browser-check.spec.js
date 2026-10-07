@@ -164,8 +164,8 @@ test("legacy v1 shared build URL loads without local setup", async ({ page }) =>
     faction_notoriety: null,
     guild_level: null
   };
-  const code = Buffer.from(JSON.stringify({ v: 1, build }), "utf8").toString("base64url");
-  await page.goto(`http://127.0.0.1:4173/?build=${code}#build`, { waitUntil: "networkidle" });
+  const code = Buffer.from(JSON.stringify({ v: 1, build }), "utf8").toString("base64");
+  await page.goto(`http://127.0.0.1:4173/?build=${encodeURIComponent(code)}#build`, { waitUntil: "networkidle" });
   await expect(page.locator("#tab-build")).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#build-level")).toHaveValue("10");
   await expect(page.locator("#build-strength")).toHaveValue("20");
@@ -183,4 +183,39 @@ test("compact v2 shared URL resolves item and skill IDs", async ({ page }) => {
   await expect(page.locator('[data-slot="face"]')).toHaveAttribute("data-tooltip-slug", "moon-talisman-387");
   await expect(page.locator('[data-effect-role="buff"][data-effect-index="0"]')).toHaveAttribute("data-tooltip-slug", "manhole-manifest-1st-edition-2848");
   await expect(page.locator("#build-code-status")).toHaveText("Loaded build from shared URL.");
+});
+
+test("database v4 links import and export compatible build state", async ({ page }) => {
+  const payload = {
+    v: 4,
+    e: [[1, 387]],
+    i: [[4, 2615]],
+    o: [[0, 525]],
+    p: [2, 103],
+    s: [22, 23, 24, 25]
+  };
+  const code = `v4.${Buffer.from(JSON.stringify(payload), "utf8").toString("base64url")}`;
+
+  await page.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+  await page.locator("#tab-build").click();
+  await page.locator("#build-form .advanced-editor summary").click();
+  await page.locator("#build-code").fill(`https://db.fantasyonline2.com/build/${code}`);
+  await page.locator("#load-build-code").click();
+
+  await expect(page.locator("#build-code-status")).toHaveText("Fantasy Online 2 Database build loaded.");
+  await expect(page.locator("#build-level")).toHaveValue("103");
+  await expect(page.locator("#build-progression")).toHaveValue("ascension");
+  await expect(page.locator("#build-agility")).toHaveValue("2");
+  await expect(page.locator("#build-strength")).toHaveValue("3");
+  await expect(page.locator("#build-stamina")).toHaveValue("4");
+  await expect(page.locator("#build-intellect")).toHaveValue("5");
+  await expect(page.locator('[data-slot="face"]')).toHaveAttribute("data-tooltip-slug", "moon-talisman-387");
+  await expect(page.locator('[data-slot="implant-left-leg"]')).toHaveAttribute("data-tooltip-slug", "alien-left-leg-implant-2615");
+  await expect(page.locator('[data-slot="outfit-head"]')).toHaveAttribute("data-tooltip-slug", "acorn-warrior-helm-525");
+
+  await page.locator("#copy-database-link").click();
+  const exported = await page.locator("#build-code").inputValue();
+  expect(exported.startsWith("v4.")).toBeTruthy();
+  expect(JSON.parse(Buffer.from(exported.slice(3), "base64url").toString("utf8"))).toEqual(payload);
+  await expect(page.locator("#build-code-status")).toContainText("Database link copied.");
 });

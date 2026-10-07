@@ -1,6 +1,6 @@
 "use strict";
 
-const EXPECTED_WEB_BUILD_ID = "2026-10-03-compact-build-codes-v30";
+const EXPECTED_WEB_BUILD_ID = "2026-10-06-database-build-v4-v31";
 const STATIC_RUNTIME = document.documentElement.dataset.runtime === "static";
 let staticRuntimePromise = null;
 
@@ -95,6 +95,27 @@ const BUILD_CODE_EQUIPMENT_SLOTS = [
   "relic", "mount", "guild", "faction", "bag", "fishing-gear"
 ];
 const BUILD_CODE_ACTIVE_ROLES = ["buff", "pet", "morph"];
+const DATABASE_BUILD_CODE_PREFIX = "v4.";
+const DATABASE_BUILD_CODE_MAX_LENGTH = 1_536;
+const DATABASE_BUILD_MAX_INTEGER = 2_147_483_647;
+const DATABASE_BUILD_URL = "https://db.fantasyonline2.com/build/";
+const DATABASE_EQUIPMENT_SLOTS = [
+  ["HEAD", "head", 0], ["FACE", "face", 0], ["BACK", "back", 0], ["SHOULDERS", "shoulders", 0],
+  ["CHEST", "chest", 0], ["LEGS", "legs", 0], ["MAIN_HAND", "main-hand", 0], ["LEFT_RING", "ring", 0],
+  ["RIGHT_RING", "ring", 1], ["LEFT_TRINKET", "trinket", 0], ["RIGHT_TRINKET", "trinket", 1],
+  ["GUILD", "guild", 0], ["FACTION", "faction", 0], ["OFFHAND", "off-hand", 0], ["RELIC", "relic", 0],
+  ["MOUNT", "mount", 0]
+];
+const DATABASE_IMPLANT_SLOTS = [
+  ["BRAIN", "implant-brain", 0], ["HEART", "implant-heart", 0], ["LEFT_ARM", "implant-left-arm", 0],
+  ["RIGHT_ARM", "implant-right-arm", 0], ["LEFT_LEG", "implant-left-leg", 0], ["RIGHT_LEG", "implant-right-leg", 0]
+];
+const DATABASE_OUTFIT_SLOTS = [
+  ["HEAD", "outfit-head", 0], ["CHEST", "outfit-chest", 0], ["FACE", "outfit-face", 0],
+  ["LEGS", "outfit-legs", 0], ["BACK", "outfit-back", 0], ["MAIN_HAND", "outfit-main-hand", 0],
+  ["SHOULDERS", "outfit-shoulders", 0], ["OFFHAND", "outfit-off-hand", 0],
+  ["FIGHT_LINE", "outfit-fight-line", 0], ["MOUNT", "outfit-mount", 0]
+];
 
 function readStored(name, fallback) {
   try { return localStorage.getItem(storageKey(name)) || pretty(fallback); }
@@ -159,19 +180,46 @@ function compactBuildV2(build) {
   return payload;
 }
 
-function encodeBuildCode(build) {
-  const bytes = new TextEncoder().encode(JSON.stringify(compactBuildV2(build)));
+function encodeBase64Url(value) {
+  const bytes = new TextEncoder().encode(value);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/g, "");
 }
 
-function parseBuildCodePayload(code) {
-  const compact = String(code || "").trim();
-  if (!compact || compact.length > MAX_BUILD_CODE_LENGTH) throw new Error("Build code is empty or too large");
-  const base64 = compact.replaceAll("-", "+").replaceAll("_", "/");
+function decodeBase64Url(value, { fatal = false, relaxed = false } = {}) {
+  const pattern = relaxed ? /^[A-Za-z0-9+/_-]+={0,2}$/ : /^[A-Za-z0-9_-]+$/;
+  if (!value || !pattern.test(value)) throw new Error("Invalid Base64URL data");
+  const unpadded = relaxed ? value.replace(/=+$/g, "") : value;
+  if (unpadded.length % 4 === 1) throw new Error("Invalid Base64URL data");
+  const base64 = unpadded.replaceAll("-", "+").replaceAll("_", "/");
   const binary = atob(base64 + "=".repeat((4 - base64.length % 4) % 4));
-  return JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, character => character.charCodeAt(0))));
+  return new TextDecoder("utf-8", { fatal }).decode(Uint8Array.from(binary, character => character.charCodeAt(0)));
+}
+
+function encodeBuildCode(build) {
+  return encodeBase64Url(JSON.stringify(compactBuildV2(build)));
+}
+
+function buildIdentifierFromInput(value) {
+  let compact = String(value || "").trim();
+  if (!compact || compact.length > MAX_BUILD_CODE_LENGTH) throw new Error("Build code is empty or too large");
+  if (/^https?:\/\//i.test(compact)) {
+    let url;
+    try { url = new URL(compact); }
+    catch { throw new Error("Build URL is invalid"); }
+    const databasePath = url.hostname === "db.fantasyonline2.com" ? /^\/build\/([^/]+)\/?$/.exec(url.pathname) : null;
+    const fromQuery = url.searchParams.get("build") || url.searchParams.get("id");
+    if (databasePath) compact = decodeURIComponent(databasePath[1]);
+    else if (fromQuery) compact = fromQuery.trim();
+    else throw new Error("Build URL does not contain a build code");
+  }
+  if (!compact || compact.length > MAX_BUILD_CODE_LENGTH) throw new Error("Build code is empty or too large");
+  return compact;
+}
+
+function parseBuildCodePayload(code) {
+  return JSON.parse(decodeBase64Url(code, { relaxed: true }));
 }
 
 function checkedBuildCodeArray(value, label, maximumLength) {
@@ -255,12 +303,192 @@ async function expandBuildV2(payload) {
   });
 }
 
-async function decodeBuildCode(code) {
-  const payload = parseBuildCodePayload(code);
-  if (payload && payload.v === LEGACY_BUILD_CODE_VERSION && typeof payload.build === "object" && !Array.isArray(payload.build)) {
-    return migrateBuild(payload.build);
+function databaseBuildInteger(value, label, minimum = 0, maximum = DATABASE_BUILD_MAX_INTEGER) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`${label} must be a whole number between ${minimum} and ${maximum}`);
   }
-  if (Array.isArray(payload) && payload[0] === BUILD_CODE_VERSION) return expandBuildV2(payload);
+  return value;
+}
+
+function databaseBuildPairs(value, definitions, label) {
+  if (!Array.isArray(value) || value.length > definitions.length) throw new Error(`Invalid database build ${label}`);
+  const seen = new Set();
+  const pairs = value.map(pair => {
+    if (!Array.isArray(pair) || pair.length !== 2) throw new Error(`Invalid database build ${label}`);
+    const slot = databaseBuildInteger(pair[0], `${label} slot`, 0, definitions.length - 1);
+    const itemId = databaseBuildInteger(pair[1], `${label} item ID`, 1);
+    if (seen.has(slot)) throw new Error(`Duplicate database build ${label} slot`);
+    seen.add(slot);
+    return [slot, itemId];
+  });
+  return pairs.toSorted((left, right) => left[0] - right[0]);
+}
+
+function databaseBuildNameIsValid(value) {
+  if (typeof value !== "string" || Array.from(value).length > 60) return false;
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(new TextEncoder().encode(value)) === value; }
+  catch { return false; }
+}
+
+function encodeDatabaseBuildPayload(payload) {
+  const identifier = `${DATABASE_BUILD_CODE_PREFIX}${encodeBase64Url(JSON.stringify(payload))}`;
+  if (identifier.length > DATABASE_BUILD_CODE_MAX_LENGTH) throw new Error("Database build code is too large");
+  return identifier;
+}
+
+function parseDatabaseBuildPayload(identifier) {
+  if (identifier.length > DATABASE_BUILD_CODE_MAX_LENGTH || !identifier.startsWith(DATABASE_BUILD_CODE_PREFIX)) {
+    throw new Error("Invalid database build code");
+  }
+  let payload;
+  try { payload = JSON.parse(decodeBase64Url(identifier.slice(DATABASE_BUILD_CODE_PREFIX.length), { fatal: true })); }
+  catch { throw new Error("Invalid database build code"); }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload) || Object.getPrototypeOf(payload) !== Object.prototype) {
+    throw new Error("Invalid database build code");
+  }
+  const required = ["v", "e", "i", "o", "p", "s"];
+  const allowed = new Set([...required, "n"]);
+  if (!required.every(key => Object.hasOwn(payload, key)) || Object.keys(payload).some(key => !allowed.has(key)) || payload.v !== 4) {
+    throw new Error("Invalid database build code");
+  }
+  const equipment = databaseBuildPairs(payload.e, DATABASE_EQUIPMENT_SLOTS, "equipment");
+  const implants = databaseBuildPairs(payload.i, DATABASE_IMPLANT_SLOTS, "implants");
+  const outfits = databaseBuildPairs(payload.o, DATABASE_OUTFIT_SLOTS, "outfits");
+  if (!Array.isArray(payload.p) || payload.p.length !== 2 || !Array.isArray(payload.s) || payload.s.length !== 4) {
+    throw new Error("Invalid database build progression or stats");
+  }
+  const progression = databaseBuildInteger(payload.p[0], "Database build progression", 0, BUILD_CODE_PROGRESSIONS.length - 1);
+  const level = databaseBuildInteger(payload.p[1], "Database build level", 1);
+  const stats = payload.s.map((value, index) => databaseBuildInteger(value, `Database build stat ${index + 1}`, 20));
+  if (Object.hasOwn(payload, "n") && !databaseBuildNameIsValid(payload.n)) throw new Error("Invalid database build name");
+  const canonical = {
+    v: 4,
+    e: equipment,
+    i: implants,
+    o: outfits,
+    p: [progression, level],
+    s: stats,
+    ...(Object.hasOwn(payload, "n") ? { n: payload.n } : {})
+  };
+  if (encodeDatabaseBuildPayload(canonical) !== identifier) throw new Error("Database build code is not canonical");
+  return canonical;
+}
+
+function databaseSlotCode(definitions, slot, slotIndex) {
+  return definitions.findIndex(([, candidateSlot, candidateIndex]) => candidateSlot === slot && candidateIndex === slotIndex);
+}
+
+function compactDatabaseBuild(build, outfit = state.outfit) {
+  const progression = BUILD_CODE_PROGRESSIONS.indexOf(build.progression);
+  if (progression < 0) throw new Error("Build progression is not database-compatible");
+  const level = databaseBuildInteger(build.level, "Build level", 1);
+  const equipment = [];
+  const implants = [];
+  const seenEquipment = new Set();
+  const seenImplants = new Set();
+  for (const entry of build.equipment || []) {
+    const slotIndex = databaseBuildInteger(entry.slot_index ?? 0, `${entry.slot} slot index`);
+    const isImplant = String(entry.slot || "").startsWith("implant-");
+    const definitions = isImplant ? DATABASE_IMPLANT_SLOTS : DATABASE_EQUIPMENT_SLOTS;
+    const target = isImplant ? implants : equipment;
+    const seen = isImplant ? seenImplants : seenEquipment;
+    const code = databaseSlotCode(definitions, entry.slot, slotIndex);
+    if (code < 0) throw new Error(`Equipment slot ${entry.slot || "(empty)"}:${slotIndex} is not supported by database builds`);
+    if (seen.has(code)) throw new Error(`Equipment slot ${entry.slot}:${slotIndex} is duplicated`);
+    seen.add(code);
+    target.push([code, databaseBuildInteger(buildEntityId(entry.item_slug, `Item ${entry.item_slug || "(empty)"}`), "Item ID", 1)]);
+  }
+  equipment.sort((left, right) => left[0] - right[0]);
+  implants.sort((left, right) => left[0] - right[0]);
+
+  const outfits = [];
+  const seenOutfits = new Set();
+  for (const [key, entry] of Object.entries(outfit || {})) {
+    const code = DATABASE_OUTFIT_SLOTS.findIndex(([, slot, index]) => slotKey(slot, index) === key);
+    if (code < 0) throw new Error(`Outfit slot ${key} is not supported by database builds`);
+    if (seenOutfits.has(code)) throw new Error(`Outfit slot ${key} is duplicated`);
+    seenOutfits.add(code);
+    const slug = entry?.slug || entry?.item_slug;
+    outfits.push([code, databaseBuildInteger(buildEntityId(slug, `Outfit ${slug || "(empty)"}`), "Outfit item ID", 1)]);
+  }
+  outfits.sort((left, right) => left[0] - right[0]);
+
+  const allocated = build.allocated || {};
+  return {
+    v: 4,
+    e: equipment,
+    i: implants,
+    o: outfits,
+    p: [progression, level],
+    s: [
+      databaseBuildInteger(20 + (allocated.agility ?? 0), "Agility", 20),
+      databaseBuildInteger(20 + (allocated.strength ?? 0), "Strength", 20),
+      databaseBuildInteger(20 + (allocated.stamina ?? 0), "Stamina", 20),
+      databaseBuildInteger(20 + (allocated.intellect ?? 0), "Intellect", 20)
+    ]
+  };
+}
+
+function encodeDatabaseBuildCode(build, outfit = state.outfit) {
+  return encodeDatabaseBuildPayload(compactDatabaseBuild(build, outfit));
+}
+
+async function expandDatabaseBuildV4(identifier) {
+  const payload = parseDatabaseBuildPayload(identifier);
+  const itemIds = new Set([...payload.e, ...payload.i, ...payload.o].map(([, itemId]) => itemId));
+  const resolved = await api("/api/build/resolve-ids", {
+    method: "POST",
+    body: JSON.stringify({ item_ids: [...itemIds], skill_ids: [] })
+  });
+  const resolvedSlug = itemId => {
+    const slug = resolved.items?.[String(itemId)];
+    if (!slug) throw new Error(`Item ID ${itemId} is unavailable`);
+    return slug;
+  };
+  const equipment = [...payload.e.map(([slot, itemId]) => ({ definitions: DATABASE_EQUIPMENT_SLOTS, slot, itemId })),
+    ...payload.i.map(([slot, itemId]) => ({ definitions: DATABASE_IMPLANT_SLOTS, slot, itemId }))]
+    .map(entry => ({
+      slot: entry.definitions[entry.slot][1],
+      slot_index: entry.definitions[entry.slot][2],
+      item_slug: resolvedSlug(entry.itemId)
+    }));
+  const outfit = Object.fromEntries(payload.o.map(([slot, itemId]) => {
+    const definition = DATABASE_OUTFIT_SLOTS[slot];
+    return [slotKey(definition[1], definition[2]), { slug: resolvedSlug(itemId) }];
+  }));
+  return {
+    build: migrateBuild({
+      level: payload.p[1],
+      progression: BUILD_CODE_PROGRESSIONS[payload.p[0]],
+      allocated: {
+        agility: payload.s[0] - 20,
+        strength: payload.s[1] - 20,
+        stamina: payload.s[2] - 20,
+        intellect: payload.s[3] - 20
+      },
+      equipment,
+      skills: [],
+      active_skill_effects: [],
+      faction_notoriety: null,
+      guild_level: null
+    }),
+    outfit,
+    source: "database"
+  };
+}
+
+async function decodeBuildCode(value) {
+  const code = buildIdentifierFromInput(value);
+  if (code.startsWith(DATABASE_BUILD_CODE_PREFIX)) return expandDatabaseBuildV4(code);
+  let payload;
+  try { payload = parseBuildCodePayload(code); }
+  catch { throw new Error("Unsupported or invalid build code"); }
+  if (payload && payload.v === LEGACY_BUILD_CODE_VERSION && typeof payload.build === "object" && !Array.isArray(payload.build)) {
+    return { build: migrateBuild(payload.build), outfit: null, source: "native" };
+  }
+  if (Array.isArray(payload) && payload[0] === BUILD_CODE_VERSION) {
+    return { build: await expandBuildV2(payload), outfit: null, source: "native" };
+  }
   throw new Error("Unsupported or invalid build code");
 }
 
@@ -269,6 +497,10 @@ function shareUrlForBuild(build) {
   url.searchParams.set("build", encodeBuildCode(build));
   url.hash = "build";
   return url.toString();
+}
+
+function databaseShareUrlForBuild(build, outfit = state.outfit) {
+  return `${DATABASE_BUILD_URL}${encodeDatabaseBuildCode(build, outfit)}`;
 }
 
 async function copyText(value, fallbackField) {
@@ -898,6 +1130,12 @@ function safeJson(textarea, fallback) {
 
 function slotKey(slot, index) { return `${slot}:${index}`; }
 
+function applyDecodedOutfit(outfit) {
+  if (outfit == null) return;
+  state.outfit = outfit;
+  store("outfit", JSON.stringify(state.outfit));
+}
+
 function slotButton(config, selected, category) {
   const [slot, index, label] = config;
   const slug = selected?.item_slug || selected?.slug || "";
@@ -921,7 +1159,11 @@ function renderSlotBoard(equipment = []) {
   $$('[data-slot][data-category]').forEach(button => button.addEventListener("click", () => openItemPicker({
     slot: button.dataset.slot, index: Number(button.dataset.index), label: button.dataset.label, category: button.dataset.category
   })));
-  equipment.filter(entry => entry.item_slug && !state.itemNames.has(entry.item_slug)).forEach(entry => loadEquippedName(entry.item_slug));
+  const displayedSlugs = [
+    ...equipment.map(entry => entry.item_slug),
+    ...Object.values(state.outfit).map(entry => entry?.slug || entry?.item_slug)
+  ];
+  [...new Set(displayedSlugs.filter(Boolean))].filter(slug => !state.itemNames.has(slug)).forEach(loadEquippedName);
 }
 
 async function loadEquippedName(slug) {
@@ -1565,10 +1807,14 @@ async function initEditors() {
   let initialBuild = safeJson(fields.build[0], EXAMPLES.build);
   if (sharedCode) {
     try {
-      initialBuild = await decodeBuildCode(sharedCode);
+      const decoded = await decodeBuildCode(sharedCode);
+      initialBuild = decoded.build;
+      applyDecodedOutfit(decoded.outfit);
       fields.build[0].value = pretty(initialBuild);
       $("#build-code").value = sharedCode;
-      $("#build-code-status").textContent = "Loaded build from shared URL.";
+      $("#build-code-status").textContent = decoded.source === "database"
+        ? "Loaded Fantasy Online 2 Database build from shared URL."
+        : "Loaded build from shared URL.";
     } catch {
       $("#build-code-status").textContent = "The shared build code is invalid; your saved build was kept.";
     }
@@ -1622,15 +1868,28 @@ async function initEditors() {
       $("#build-code-status").textContent = error.message;
     }
   });
+  $("#copy-database-link").addEventListener("click", async () => {
+    try {
+      const url = databaseShareUrlForBuild(buildFromGuided());
+      $("#build-code").value = url.slice(DATABASE_BUILD_URL.length);
+      await copyText(url, $("#build-code"));
+      $("#build-code-status").textContent = "Database link copied. Skills and active effects remain available only in the native build code.";
+    } catch (error) {
+      $("#build-code-status").textContent = error.message;
+    }
+  });
   $("#load-build-code").addEventListener("click", async () => {
     const button = $("#load-build-code");
     button.disabled = true;
     try {
-      const build = await decodeBuildCode($("#build-code").value);
-      fields.build[0].value = pretty(build);
-      applyBuildToGuided(build);
+      const decoded = await decodeBuildCode($("#build-code").value);
+      applyDecodedOutfit(decoded.outfit);
+      fields.build[0].value = pretty(decoded.build);
+      applyBuildToGuided(decoded.build);
       syncBuildFromGuided();
-      $("#build-code-status").textContent = "Build code loaded.";
+      $("#build-code-status").textContent = decoded.source === "database"
+        ? "Fantasy Online 2 Database build loaded."
+        : "Build code loaded.";
       toast("Shared build loaded");
     } catch (error) {
       $("#build-code-status").textContent = error.message;
